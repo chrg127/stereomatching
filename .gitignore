@@ -1,0 +1,4 @@
+stereomatch
+*.o
+a.out
+*~
