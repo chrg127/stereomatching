@@ -11,4 +11,4 @@ $(name): src/main.o
 .PHONY: clean
 
 clean:
-	rm $(name) *.ppm src/*.o
+	-rm $(name) *.ppm src/*.o

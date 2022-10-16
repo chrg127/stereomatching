@@ -36,7 +36,7 @@
 ; in both diagonal directions. The four programs may then be combined to find all edges in
 ; the following way:
 
-(*defun fine-all-edges!! (brightness-pvar threshold)
+(*defun find-all-edges!! (brightness-pvar threshold)
   (if!! (or!! (=! (!! 1) (find-edges-between-left-and-right!!              brightness-pvar threshold))
               (=! (!! 1) (find-edges-between-above-and-below!!             brightness-pvar threshold))
               (=! (!! 1) (find-edges-between-upper-left-and-lower-right!!  brightness-pvar threshold))
@@ -44,12 +44,11 @@
         (!! 1)
         (!! 0)))
 
-
+;;; this is just a regular lisp array, but each element of this array will be a pvar.
+;;; notice that we'll try to find positional differences of up to 30 pixels. (note: each
+;;; one of the pvars in this array will hold an "alignment-table-slot for every pixel,
+;;; as discussed in the text).
 (defvar *array-of-pvars-holding-matches-at-each-shift* (make-array 30))
-    ;;; this is just a regular lisp array, but each element of this array will be a pvar.
-    ;;; notice that we'll try to find positional differences of up to 30 pixels. (note: each
-    ;;; one of the pvars in this array will hold an "alignment-table-slot for every pixel,
-    ;;; as discussed in the text).
 
 (*defun fillup-pvars-wherever-edges-align (left-edges right-edges)
   ;; this function records the edge-pixel match-ups at every shift;
