@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -192,22 +193,55 @@ void allocate_matches(int width, int height)
         matches[i] = xmalloc(sizeof(matches[0]) * width * height);
 }
 
-void reset_matches(int width, int height)
-{
-    for (int i = 0; i < NUM_SHIFTS; i++)
-        memset(matches[i], 0, sizeof(matches[0]) * width * height);
-}
-
 void fillup_matches(double *left_edges, double *right_edges, int width, int height)
 {
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                matches[i][idx(x, y, width)] =
-                    left_edges[idx(x, y, width)] == right_edges[idx(x+i, y, width)];
+                int index = idx(x,   y, width),
+                    shift = idx(x+i, y, width);
                 // ^ the +i accomplishes the sliding process
+                matches[i][index] = left_edges[index] == right_edges[shift] ? 0.0 : 1.0;
             }
         }
+    }
+}
+
+int *addup_pixels_in_square(double *p, int width, int height, int square_width)
+{
+    int half = square_width / 2;
+    int *total = malloc(sizeof(int) * width * height);
+    for (int sy = 0; sy < square_width; sy++) {
+        for (int sx = 0; sx < square_width; sx++) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int cur = idx(x, y, width);
+                    int rel = idx(x + sx - half,
+                                  y + sy - half, width);
+                    total[cur] += p[rel];
+                }
+            }
+        }
+    }
+    return total;
+}
+
+int *scores[NUM_SHIFTS];
+
+bool has_match(int *p, int width, int height)
+{
+    for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+            if (p[idx(x, y, width)] == 1)
+                return true;
+    return false;
+}
+
+void fillup_scores(int width, int height, int square_width)
+{
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        int *sums = addup_pixels_in_square(matches[i], width, height, square_width);
+        scores[i] = has_match(matches[i], width, height) ? sums : NULL;
     }
 }
 

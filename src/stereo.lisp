@@ -62,6 +62,16 @@
           *array-of-pvars-holding-matches-at-each-shift*
           i)))
 
+;;; The next step in the process is to decide at each pixel position which shift produced
+;;; the best match-up. Most locations will contain a somewhat random pattern of match-up
+;;; pixels. However, at some locations, the local neighborhood of match-ups will be very dense
+;;; and regular, indicating that the shift responsible for that match-up image is probably the
+;;; correct shift for that neighborhood.
+;;; The following *Lisp program measures the density or alignment quality of every neigh-
+;;; borhood. It does so by, counting the number of l’s (match-ups) in a square around each
+;;; pixel. The counting process is accomplished in parallel, for all pixels at once, on the Con-
+;;; nection Machine system.
+
 ;;; the square for each pixel is to be centered on that pixel. Because a DOTIMES loop always
 ;;; produces values starting at zero, it is necessary to subtract one-half the width of the
 ;;; square from the loop variable in order to get relative indexes that are centered on zero.
