@@ -23,6 +23,10 @@ typedef struct {
     int width, height;
 } Image;
 
+
+
+// utility functions
+
 int idx(int x, int y, int w)
 {
     x = (x + w) % w;
@@ -30,9 +34,9 @@ int idx(int x, int y, int w)
     return y * w + x;
 }
 
-void *xmalloc(size_t size)
+void *xmalloc(size_t nmemb, size_t size)
 {
-    void *p = malloc(size);
+    void *p = calloc(nmemb, size);
     if (!p) {
         fprintf(stderr, "error: out of memory\n");
         exit(1);
@@ -40,15 +44,20 @@ void *xmalloc(size_t size)
     return p;
 }
 
+
+
+// image I/O
+
 // convert values from 0..256 to 0.0..1.0
 double *convert_image(u8 *data, int width, int height)
 {
-    double *newdata = xmalloc(sizeof(double) * width * height);
+    double *newdata = xmalloc(width * height, sizeof(double));
     for (int i = 0; i < width * height; i++)
         newdata[i] = data[i] / 256.0;
     return newdata;
 }
 
+// read image, check if it's grayscale and convert it to doubles in the unit
 int read_image(const char *name, Image *out)
 {
     int channels = 0;
@@ -66,43 +75,44 @@ int read_image(const char *name, Image *out)
     return 0;
 }
 
-void write_image_data(double *data, int width, int height, const char *name, int number)
-{
-    char filename[1000];
-    snprintf(filename, sizeof(filename), "%s%d.ppm", name, number);
-    FILE *f = fopen(filename, "w");
-    if (!f)
-        return;
-    fprintf(f, "P3\n%d %d\n255\n", width, height);
-    for (int i = 0; i < width * height; i++) {
-        int v = (int) (data[i] * 255.0);
-        fprintf(f, "%d %d %d\n", v, v, v);
-    }
-}
-
-void write_image_u8(u8 *data, int width, int height, const char *name, int number)
-{
-    char filename[1000];
-    snprintf(filename, sizeof(filename), "%s%d.ppm", name, number);
-    FILE *f = fopen(filename, "w");
-    if (!f)
-        return;
-    fprintf(f, "P3\n%d %d\n255\n", width, height);
-    for (int i = 0; i < width * height; i++) {
-        u8 v = data[i];
-        fprintf(f, "%d %d %d\n", v, v, v);
-    }
-}
-
-void write_image(Image *im, const char *name, int number)
-{
-    write_image_data(im->data, im->width, im->height, name, number);
-}
-
+// free images opened by read_image
 void free_image(Image *im)
 {
     stbi_image_free(im->data);
 }
+
+// write a grayscale image. get_data(data, i) returns a single pixel value from the image
+void write_image(void *data, int width, int height, const char *name, int number, int (*get_data)(void *, int))
+{
+    char filename[1000];
+    snprintf(filename, sizeof(filename), "%s%d.ppm", name, number);
+    FILE *f = fopen(filename, "w");
+    if (!f)
+        return;
+    fprintf(f, "P3\n%d %d\n255\n", width, height);
+    for (int i = 0; i < width * height; i++) {
+        int v = get_data(data, i);
+        fprintf(f, "%d %d %d\n", v, v, v);
+    }
+}
+
+// used for grayscale images where each pixel is in a 0.0..1.0 range, where 0.0 is black
+int get_data_grayscale(void *data, int i)
+{
+    double *p = (double *) data;
+    return (int) (p[i] * 255.0);
+}
+
+// used for 'binary' images, i.e. images composed only of 0s and 1s, where 0 is white (and NOT black)
+int get_data_binary(void *data, int i)
+{
+    u8 *p = (u8 *) data;
+    return (int) (p[i] == 1 ? 0 : 255);
+}
+
+
+
+// the actual algorithm
 
 int find_edges_left_right(double *brightness, int width, int x, int y, double threshold)
 {
@@ -160,20 +170,127 @@ int find_edges_downleft_upright(double *brightness, int width, int x, int y, dou
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-void find_all_edges(double *brightness, int width, int height, double threshold, double *out)
+void find_all_edges(double *brightness, int width, int height, double threshold, u8 *out)
 {
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
-            if (find_edges_left_right(brightness, width, x, y, threshold)
+            out[idx(x, y, width)] =
+                find_edges_left_right(brightness, width, x, y, threshold)
              || find_edges_top_bottom(brightness, width, x, y, threshold)
              || find_edges_upleft_downright(brightness, width, x, y, threshold)
-             || find_edges_downleft_upright(brightness, width, x, y, threshold))
-                out[idx(x, y, width)] = 0.0;
-            else
-                out[idx(x, y, width)] = 1.0;
+             || find_edges_downleft_upright(brightness, width, x, y, threshold);
         }
     }
 }
+
+// a WxH size array used to keep matches
+u8 *matches[NUM_SHIFTS];
+
+void allocate_matches(int width, int height)
+{
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        matches[i] = xmalloc(width * height, sizeof(matches[0]));
+}
+
+void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
+{
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = idx(x,   y, width),
+                    shift = idx(x+i, y, width);
+                // ^ the +i accomplishes the sliding process
+                matches[i][index] = left_edges[index] == right_edges[shift];
+            }
+        }
+    }
+}
+
+/*
+ * for each pixel in parallel:
+ *
+ * *.. .*. ..* ... ... ... ... ... ...
+ * ... ... ... *.. .*. ..* ... ... ...
+ * ... ... ... ... ... ... *.. .*. ..*
+ *
+ * where the considered pixel is at the center and square_width = 3
+ * pixels must be a binary image.
+ */
+i32 *addup_pixels_in_square(u8 *pixels, int width, int height, int square_width)
+{
+    int half = square_width / 2;
+    i32 *total = xmalloc(width * height, sizeof(i32));
+    for (int sy = 0; sy < square_width; sy++) {
+        for (int sx = 0; sx < square_width; sx++) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int cur = idx(x, y, width);
+                    int rel = idx(x + sx - half,
+                                  y + sy - half, width);
+                    total[cur] += (i32) pixels[rel];
+                }
+            }
+        }
+    }
+    return total;
+}
+
+// a WxH size array used to keep scores
+i32 *scores[NUM_SHIFTS];
+
+void allocate_scores(int width, int height)
+{
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        scores[i] = xmalloc(width * height, sizeof(scores[0]));
+}
+
+void fillup_scores(int width, int height, int square_width)
+{
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        i32 *sums = addup_pixels_in_square(matches[i], width, height, square_width);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = idx(x, y, width);
+                // record a score whenever there was a match-up
+                if (matches[i][index] == 1)
+                    scores[i][index] = sums[index];
+            }
+        }
+    }
+}
+
+void find_shifts_of_highest_scoring(int width, int height)
+{
+    i32 *best_scores    = xmalloc(width * height, sizeof(int));
+    i32 *winning_shifts = xmalloc(width * height, sizeof(int));
+    // the following loop makes sure that each pixel in the best_scores
+    // image contains the maximum score found at any shift.
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = idx(x, y, width);
+                if (scores[i][index] > best_scores[index])
+                    best_scores[index] = scores[i][index];
+            }
+        }
+    }
+    // the following loop records a 'winning' shift at every pixel
+    // whose score is the best.
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = idx(x, y, width);
+                if (scores[i][index] == best_scores[index])
+                    winning_shifts[index] = i+1;
+            }
+        }
+    }
+    return winning_shifts;
+}
+
+
+
+// other random stuff
 
 int black_pixels(double *im, int width, int height)
 {
@@ -183,66 +300,6 @@ int black_pixels(double *im, int width, int height)
             count++;
     }
     return count;
-}
-
-double *matches[NUM_SHIFTS];
-
-void allocate_matches(int width, int height)
-{
-    for (int i = 0; i < NUM_SHIFTS; i++)
-        matches[i] = xmalloc(sizeof(matches[0]) * width * height);
-}
-
-void fillup_matches(double *left_edges, double *right_edges, int width, int height)
-{
-    for (int i = 0; i < NUM_SHIFTS; i++) {
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int index = idx(x,   y, width),
-                    shift = idx(x+i, y, width);
-                // ^ the +i accomplishes the sliding process
-                matches[i][index] = left_edges[index] == right_edges[shift] ? 0.0 : 1.0;
-            }
-        }
-    }
-}
-
-int *addup_pixels_in_square(double *p, int width, int height, int square_width)
-{
-    int half = square_width / 2;
-    int *total = malloc(sizeof(int) * width * height);
-    for (int sy = 0; sy < square_width; sy++) {
-        for (int sx = 0; sx < square_width; sx++) {
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    int cur = idx(x, y, width);
-                    int rel = idx(x + sx - half,
-                                  y + sy - half, width);
-                    total[cur] += p[rel];
-                }
-            }
-        }
-    }
-    return total;
-}
-
-int *scores[NUM_SHIFTS];
-
-bool has_match(int *p, int width, int height)
-{
-    for (int y = 0; y < height; y++)
-        for (int x = 0; x < width; x++)
-            if (p[idx(x, y, width)] == 1)
-                return true;
-    return false;
-}
-
-void fillup_scores(int width, int height, int square_width)
-{
-    for (int i = 0; i < NUM_SHIFTS; i++) {
-        int *sums = addup_pixels_in_square(matches[i], width, height, square_width);
-        scores[i] = has_match(matches[i], width, height) ? sums : NULL;
-    }
 }
 
 int main(int argc, char *argv[])
@@ -273,21 +330,19 @@ int main(int argc, char *argv[])
     }
 
     /* first step: find edges in both images */
-    double *first_edges = xmalloc(sizeof(double) * first.width * first.height);
-    memset(first_edges, 0, sizeof(double) * first.width * first.height);
+    u8 *first_edges = xmalloc(first.width * first.height, sizeof(u8));
     find_all_edges(first.data, first.width, first.height, threshold, first_edges);
-    write_image_data(first_edges, first.width, first.height, "edges", 1);
+    write_image(first_edges, first.width, first.height, "edges", 1, get_data_binary);
 
-    double *second_edges = xmalloc(sizeof(double) * first.width * first.height);
-    memset(second_edges, 0, sizeof(double) * first.width * first.height);
+    u8 *second_edges = xmalloc(first.width * first.height, sizeof(u8));
     find_all_edges(second.data, second.width, second.height, threshold, second_edges);
-    write_image_data(second_edges, second.width, second.height, "edges", 2);
+    write_image(second_edges, second.width, second.height, "edges", 2, get_data_binary);
 
     /* second step: match edges between images */
     allocate_matches(first.width, first.height);
-    fillup_matches(first.data, second.data, first.width, first.height);
+    fillup_matches(first_edges, second_edges, first.width, first.height);
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image_data(matches[i], first.width, first.height, "matches", i);
+        write_image(matches[i], first.width, first.height, "matches", i, get_data_binary);
 
     free(first_edges);
     free(second_edges);

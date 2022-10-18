@@ -68,7 +68,7 @@
 ;;; and regular, indicating that the shift responsible for that match-up image is probably the
 ;;; correct shift for that neighborhood.
 ;;; The following *Lisp program measures the density or alignment quality of every neigh-
-;;; borhood. It does so by, counting the number of l’s (match-ups) in a square around each
+;;; borhood. It does so by, counting the number of 1’s (match-ups) in a square around each
 ;;; pixel. The counting process is accomplished in parallel, for all pixels at once, on the Con-
 ;;; nection Machine system.
 
