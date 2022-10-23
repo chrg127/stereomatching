@@ -12,6 +12,17 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define CLAMP(x, mi, ma) (MIN(MAX(x, mi), ma))
+#define SWAP(x, y, T)   \
+    do {                \
+        T tmp = (x);    \
+        (x) = (y);      \
+        (y) = tmp;      \
+    } while (0)
+
+#define DEFAULT_THRESHOLD 0.15
+#define DEFAULT_SQUARE_WIDTH 5
+#define DEFAULT_TIMES 32
+#define DEFAULT_LINES 10
 
 typedef uint8_t  u8;
 typedef uint32_t u32;
@@ -44,6 +55,19 @@ void *xmalloc(size_t nmemb, size_t size)
     return p;
 }
 
+double parse_double(const char *s, double *n)
+{
+    char *endptr;
+    *n = strtod(s, &endptr);
+    return *n == 0 && endptr == s;
+}
+
+int parse_int(const char *s, int *n)
+{
+    char *endptr;
+    *n = strtol(s, &endptr, 0);
+    return *n == 0 && endptr == s;
+}
 
 
 // image I/O
@@ -72,17 +96,28 @@ int read_image(const char *name, Image *out)
         return 1;
     }
     out->data = convert_image(imgdata, out->width, out->height);
+    stbi_image_free(imgdata);
     return 0;
 }
 
-// free images opened by read_image
-void free_image(Image *im)
+typedef enum ImageType {
+    IMTYPE_BINARY,      // an image with only 0s for white and 1s for black
+    IMTYPE_GRAY_FLOAT,  // an image where each pixel is a floating point value between 0..1
+    IMTYPE_GRAY_INT,    // an image where each pixel is a value from 0 to 255
+} ImageType;
+
+int get_image_value(void *p, int i, ImageType type)
 {
-    stbi_image_free(im->data);
+    switch (type) {
+    case IMTYPE_BINARY:     return (int) (((u8 *)p)[i] == 1 ? 0 : 255);
+    case IMTYPE_GRAY_FLOAT: return (int) (((double *)p)[i] * 255.0);
+    case IMTYPE_GRAY_INT:   return (int) (((i32 *)p)[i]);
+    default:                return 0;
+    }
 }
 
-// write a grayscale image. get_data(data, i) returns a single pixel value from the image
-void write_image(void *data, int width, int height, const char *name, int number, int (*get_data)(void *, int))
+// writes a grayscale image.
+void write_image(void *data, int width, int height, ImageType type, const char *name, int number)
 {
     char filename[1000];
     snprintf(filename, sizeof(filename), "%s%d.ppm", name, number);
@@ -91,23 +126,9 @@ void write_image(void *data, int width, int height, const char *name, int number
         return;
     fprintf(f, "P3\n%d %d\n255\n", width, height);
     for (int i = 0; i < width * height; i++) {
-        int v = get_data(data, i);
+        int v = get_image_value(data, i, type);
         fprintf(f, "%d %d %d\n", v, v, v);
     }
-}
-
-// used for grayscale images where each pixel is in a 0.0..1.0 range, where 0.0 is black
-int get_data_grayscale(void *data, int i)
-{
-    double *p = (double *) data;
-    return (int) (p[i] * 255.0);
-}
-
-// used for 'binary' images, i.e. images composed only of 0s and 1s, where 0 is white (and NOT black)
-int get_data_binary(void *data, int i)
-{
-    u8 *p = (u8 *) data;
-    return (int) (p[i] == 1 ? 0 : 255);
 }
 
 
@@ -170,11 +191,11 @@ int find_edges_downleft_upright(double *brightness, int width, int x, int y, dou
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-void find_all_edges(double *brightness, int width, int height, double threshold, u8 *out)
+void find_all_edges(double *brightness, int width, int height, double threshold, u8 *edges)
 {
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
-            out[idx(x, y, width)] =
+            edges[idx(x, y, width)] =
                 find_edges_left_right(brightness, width, x, y, threshold)
              || find_edges_top_bottom(brightness, width, x, y, threshold)
              || find_edges_upleft_downright(brightness, width, x, y, threshold)
@@ -203,7 +224,17 @@ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
                 matches[i][index] = left_edges[index] == right_edges[shift];
             }
         }
+        write_image(matches[i], width, height, IMTYPE_BINARY, "matches", i);
     }
+}
+
+// a WxH size array used to keep scores
+i32 *scores[NUM_SHIFTS];
+
+void allocate_scores(int width, int height)
+{
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        scores[i] = xmalloc(width * height, sizeof(scores[0]));
 }
 
 /*
@@ -213,13 +244,13 @@ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
  * ... ... ... *.. .*. ..* ... ... ...
  * ... ... ... ... ... ... *.. .*. ..*
  *
- * where the considered pixel is at the center and square_width = 3
+ * (where the considered pixel is at the center and square_width = 3)
  * pixels must be a binary image.
  */
-i32 *addup_pixels_in_square(u8 *pixels, int width, int height, int square_width)
+void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width, i32 *total)
 {
     int half = square_width / 2;
-    i32 *total = xmalloc(width * height, sizeof(i32));
+    memset(total, 0, sizeof(total[0]) * width * height);
     for (int sy = 0; sy < square_width; sy++) {
         for (int sx = 0; sx < square_width; sx++) {
             for (int y = 0; y < height; y++) {
@@ -232,37 +263,31 @@ i32 *addup_pixels_in_square(u8 *pixels, int width, int height, int square_width)
             }
         }
     }
-    return total;
 }
 
-// a WxH size array used to keep scores
-i32 *scores[NUM_SHIFTS];
-
-void allocate_scores(int width, int height)
-{
-    for (int i = 0; i < NUM_SHIFTS; i++)
-        scores[i] = xmalloc(width * height, sizeof(scores[0]));
-}
-
-void fillup_scores(int width, int height, int square_width)
+void fillup_scores(int width, int height, int square_width, i32 *sum)
 {
     for (int i = 0; i < NUM_SHIFTS; i++) {
-        i32 *sums = addup_pixels_in_square(matches[i], width, height, square_width);
+        addup_pixels_in_square(matches[i], width, height, square_width, sum);
+        write_image(sum, width, height, IMTYPE_GRAY_INT, "score_all", i);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int index = idx(x, y, width);
                 // record a score whenever there was a match-up
                 if (matches[i][index] == 1)
-                    scores[i][index] = sums[index];
+                    scores[i][index] = sum[index];
             }
         }
+        write_image(scores[i], width, height, IMTYPE_GRAY_INT, "score_edges", i);
     }
 }
 
-void find_shifts_of_highest_scoring(int width, int height)
+// this function computes the web of known shifts. recall that
+// the shift at each pixel corresponds directly to the elevation.
+void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int width, int height)
 {
-    i32 *best_scores    = xmalloc(width * height, sizeof(int));
-    i32 *winning_shifts = xmalloc(width * height, sizeof(int));
+    memset(best_scores,    0, sizeof(best_scores[0])    * width * height);
+    memset(winning_shifts, 0, sizeof(winning_shifts[0]) * width * height);
     // the following loop makes sure that each pixel in the best_scores
     // image contains the maximum score found at any shift.
     for (int i = 0; i < NUM_SHIFTS; i++) {
@@ -274,6 +299,7 @@ void find_shifts_of_highest_scoring(int width, int height)
             }
         }
     }
+    write_image(best_scores, width, height, IMTYPE_GRAY_INT, "best_scores", 0);
     // the following loop records a 'winning' shift at every pixel
     // whose score is the best.
     for (int i = 0; i < NUM_SHIFTS; i++) {
@@ -285,9 +311,67 @@ void find_shifts_of_highest_scoring(int width, int height)
             }
         }
     }
-    return winning_shifts;
 }
 
+i32 *fill_web_holes(i32 *web, int width, int height, int times)
+{
+    // each time though the loop, every pixel not on the web (i.e., every pixel that is not
+    // zero to begin with) takes on the average elevation of its four neighbors. therefore,
+    // the web pixels gradually "spread" their elevations across the holes, while they
+    // themselves remain unchanged.
+    i32 *tmp = xmalloc(width * height, sizeof(web[0]));
+    memcpy(tmp, web, sizeof(web[0]) * width * height);
+    for (int i = 0; i < times; i++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (tmp[idx(x, y, width)] == 0) {
+                    web[idx(x, y, width)] =
+                        (tmp[idx(x+1, y,   width)]
+                       + tmp[idx(x,   y+1, width)]
+                       + tmp[idx(x-1, y,   width)]
+                       + tmp[idx(x,   y-1, width)]) / 4;
+                }
+            }
+        }
+        SWAP(web, tmp, i32 *);
+    }
+    free(tmp);
+    return web;
+}
+
+i32 image_max(i32 *im, int width, int height)
+{
+    i32 max = 0;
+    for (int i = 0; i < width*height; i++)
+        max = MAX(im[i], max);
+    return max;
+}
+
+i32 image_min(i32 *im, int width, int height)
+{
+    i32 min = 0;
+    for (int i = 0; i < width*height; i++)
+        min = MIN(im[i], min);
+    return min;
+}
+
+void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_output)
+{
+    // the idea is to divide the whole range of elevations into a number of intervals,
+    // then to draw a contour line at every interval.
+    i32 max_elevation = image_max(web, width, height),
+        min_elevation = image_min(web, width, height),
+        range         = max_elevation - min_elevation,
+        interval      = range / num_lines;
+    // now the variable 'interval' tells us how many elevations, or shifts, to skip between
+    // contour lines.
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            image_output[idx(x, y, width)] =
+                ((web[idx(x, y, width)] - min_elevation) % interval) == 0;
+        }
+    }
+}
 
 
 // other random stuff
@@ -305,7 +389,9 @@ int black_pixels(double *im, int width, int height)
 int main(int argc, char *argv[])
 {
     if (argc < 3) {
-        fprintf(stderr, "usage: stereomatch [image1] [image2] [threshold = 0.15]\n");
+        fprintf(stderr, "usage: stereomatch [image 1] [image 2] [threshold = %g] "
+                        "[square_width = %d] [times = %d] [lines = %d]\n",
+                        DEFAULT_THRESHOLD, DEFAULT_SQUARE_WIDTH, DEFAULT_TIMES, DEFAULT_LINES);
         return 1;
     }
 
@@ -319,34 +405,63 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    double threshold = 0.15;
-    if (argc >= 4) {
-        char *endptr;
-        threshold = strtod(argv[3], &endptr);
-        if (threshold == 0 && endptr == argv[3]) {
-            fprintf(stderr, "error: threshold must be a number\n");
-            return 1;
-        }
+    double threshold = DEFAULT_THRESHOLD;
+    if (argc >= 4 && parse_double(argv[3], &threshold)) {
+        fprintf(stderr, "error: threshold must be a number\n");
+        return 1;
     }
 
-    /* first step: find edges in both images */
-    u8 *first_edges = xmalloc(first.width * first.height, sizeof(u8));
-    find_all_edges(first.data, first.width, first.height, threshold, first_edges);
-    write_image(first_edges, first.width, first.height, "edges", 1, get_data_binary);
+    int square_width = DEFAULT_SQUARE_WIDTH;
+    if (argc >= 5 && parse_int(argv[4], &square_width)) {
+        fprintf(stderr, "error: square_width must be a number\n");
+        return 1;
+    }
 
-    u8 *second_edges = xmalloc(first.width * first.height, sizeof(u8));
-    find_all_edges(second.data, second.width, second.height, threshold, second_edges);
-    write_image(second_edges, second.width, second.height, "edges", 2, get_data_binary);
+    int times = DEFAULT_TIMES;
+    if (argc >= 6 && parse_int(argv[5], &times)) {
+        fprintf(stderr, "error: times must be a number\n");
+        return 1;
+    }
 
-    /* second step: match edges between images */
-    allocate_matches(first.width, first.height);
-    fillup_matches(first_edges, second_edges, first.width, first.height);
-    for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(matches[i], first.width, first.height, "matches", i, get_data_binary);
+    int lines_to_draw = DEFAULT_LINES;
+    if (argc >= 7 && parse_int(argv[6], &lines_to_draw)) {
+        fprintf(stderr, "error: lines must be a number\n");
+        return 1;
+    }
+
+    int width = first.width, height = first.height;
+
+    // first step: find edges in both images
+    u8 *first_edges = xmalloc(width * height, sizeof(u8));
+    find_all_edges(first.data, width, height, threshold, first_edges);
+    write_image(first_edges, width, height, IMTYPE_BINARY, "edges", 1);
+
+    u8 *second_edges = xmalloc(width * height, sizeof(u8));
+    find_all_edges(second.data, width, height, threshold, second_edges);
+    write_image(second_edges, width, height, IMTYPE_BINARY, "edges", 2);
+
+    // second step: match edges between images
+    allocate_matches(width, height);
+    fillup_matches(first_edges, second_edges, width, height);
+
+    // third step: compute scores for each pixel
+    i32 *buf            = xmalloc(width * height, sizeof(i32)),
+        *winning_shifts = xmalloc(width * height, sizeof(i32));
+    allocate_scores(width, height);
+    fillup_scores(width, height, 5, buf);
+    find_highest_scoring_shifts(buf, winning_shifts, width, height);
+    write_image(winning_shifts, width, height, IMTYPE_GRAY_INT, "web", 0);
+
+    // fourth step: draw contour lines
+    i32 *web = winning_shifts;
+    u8 *out = xmalloc(width * height, sizeof(u8));
+    web = fill_web_holes(web, width, height, times);
+    draw_contour_map(web, width, height, lines_to_draw, out);
+    write_image(out, width, height, IMTYPE_BINARY, "output", 0);
 
     free(first_edges);
     free(second_edges);
-    free_image(&first);
-    free_image(&second);
+    free(first.data);
+    free(second.data);
     return 0;
 }

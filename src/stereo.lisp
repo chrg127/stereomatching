@@ -55,7 +55,7 @@
   ;; this is, this program creates "match-up images", as shown in figure 4.4.
   (dotimes (i 30)
     (aset (if!! (=!! left-edges
-                     (pred-grid-relative!! right-edges (!! i) (!! 0)))
+                     (pref-grid-relative!! right-edges (!! i) (!! 0)))
                         ; ^ this PREF-GRID-RELATIVE!! accomplishes the "sliding" process.
                 (!! 1)
                 (!! 0))
@@ -135,14 +135,10 @@
       (*if not-fixed
         (*set web-of-known-elevations
               (/! (+!!
-                    ; neighbor to the right
-                    (pref-grid-relative!! web-of-known-elevations (!!  1) (!!  0))
-                    ; neighbor above
-                    (pref-grid-relative!! web-of-known-elevations (!!  0) (!!  1))
-                    ; neighbor to the left
-                    (pref-grid-relative!! web-of-known-elevations (!! -1) (!!  0))
-                    ; neighbot below
-                    (pref-grid-relative!! web-of-known-elevations (!!  0) (!! -1)))
+                    (pref-grid-relative!! web-of-known-elevations (!!  1) (!!  0))  ; neighbor to the right
+                    (pref-grid-relative!! web-of-known-elevations (!!  0) (!!  1))  ; neighbor above
+                    (pref-grid-relative!! web-of-known-elevations (!! -1) (!!  0))  ; neighbor to the left
+                    (pref-grid-relative!! web-of-known-elevations (!!  0) (!! -1))) ; neighbot below
                   (!! 4))))))
   web-of-known-elevations)  ;;; this is now a more or less smooth surface.
 
