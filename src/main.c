@@ -87,12 +87,13 @@ int read_image(const char *name, Image *out)
     int channels = 0;
     u8 *imgdata = stbi_load(name, &out->width, &out->height, &channels, 0);
     if (!imgdata) {
-        fprintf(stderr, "error reading image:");
+        fprintf(stderr, "error reading image %s:", name);
         perror("");
         return 1;
     }
     if (channels != 1) {
-        fprintf(stderr, "error reading image: wrong number of channels (%d) (image must be grayscale)", channels);
+        fprintf(stderr, "error reading image %s: wrong number of channels (%d) "
+                        "(image must be grayscale)", name, channels);
         return 1;
     }
     out->data = convert_image(imgdata, out->width, out->height);
@@ -102,8 +103,8 @@ int read_image(const char *name, Image *out)
 
 typedef enum ImageType {
     IMTYPE_BINARY,      // an image with only 0s for white and 1s for black
-    IMTYPE_GRAY_FLOAT,  // an image where each pixel is a floating point value between 0..1
-    IMTYPE_GRAY_INT,    // an image where each pixel is a value from 0 to 255
+    IMTYPE_GRAY_FLOAT,  // an image where each pixel is a float between 0..1
+    IMTYPE_GRAY_INT,    // an image where each pixel is an integer from 0 to 255
 } ImageType;
 
 int get_image_value(void *p, int i, ImageType type)
@@ -224,7 +225,6 @@ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
                 matches[i][index] = left_edges[index] == right_edges[shift];
             }
         }
-        write_image(matches[i], width, height, IMTYPE_BINARY, "matches", i);
     }
 }
 
@@ -299,7 +299,7 @@ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int widt
             }
         }
     }
-    write_image(best_scores, width, height, IMTYPE_GRAY_INT, "best_scores", 0);
+    write_image(best_scores, width, height, IMTYPE_GRAY_INT, "score_best", 0);
     // the following loop records a 'winning' shift at every pixel
     // whose score is the best.
     for (int i = 0; i < NUM_SHIFTS; i++) {
@@ -443,6 +443,8 @@ int main(int argc, char *argv[])
     // second step: match edges between images
     allocate_matches(width, height);
     fillup_matches(first_edges, second_edges, width, height);
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        write_image(matches[i], width, height, IMTYPE_BINARY, "matches", i);
 
     // third step: compute scores for each pixel
     i32 *buf            = xmalloc(width * height, sizeof(i32)),
@@ -450,12 +452,13 @@ int main(int argc, char *argv[])
     allocate_scores(width, height);
     fillup_scores(width, height, 5, buf);
     find_highest_scoring_shifts(buf, winning_shifts, width, height);
-    write_image(winning_shifts, width, height, IMTYPE_GRAY_INT, "web", 0);
+    write_image(winning_shifts, width, height, IMTYPE_GRAY_INT, "web", 1);
 
     // fourth step: draw contour lines
     i32 *web = winning_shifts;
     u8 *out = xmalloc(width * height, sizeof(u8));
     web = fill_web_holes(web, width, height, times);
+    write_image(web, width, height, IMTYPE_GRAY_INT, "web", 2);
     draw_contour_map(web, width, height, lines_to_draw, out);
     write_image(out, width, height, IMTYPE_BINARY, "output", 0);
 
