@@ -2,3 +2,4 @@ stereomatch
 *.o
 a.out
 *~
+*.ppm
