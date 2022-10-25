@@ -1,5 +1,8 @@
 stereomatch
+stereopar
 *.o
 a.out
 *~
 *.ppm
+a.png
+b.png

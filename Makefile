@@ -1,14 +1,19 @@
 CC := gcc
 CFLAGS := -g -Wall -Wextra -pedantic -std=c11
+CUFLAGS := -g
 LDLIBS := -lm
 name := stereomatch
+name_par := stereopar
 
-all: $(name)
+all: $(name) $(name_par)
 
-$(name): src/main.o
+$(name): src/stereo.o
 	gcc $< -o $@ $(LDLIBS)
+
+$(name_par): src/stereo.cu
+	nvcc $(CUFLAGS) $< -o $@ $(LDLIBS)
 
 .PHONY: clean
 
 clean:
-	-rm $(name) *.ppm src/*.o
+	-rm $(name) $(name_par) *.ppm src/*.o
