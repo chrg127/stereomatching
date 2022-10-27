@@ -227,13 +227,24 @@ void __global__ find_all_edges(double *brightness, u8 *edges, int width, int hei
 }
 
 
+
 // a WxH size array used to keep matches
 u8 __device__ *matches[NUM_SHIFTS];
 
 void allocate_matches(int width, int height)
 {
+    void *tmp[NUM_SHIFTS];
     for (int i = 0; i < NUM_SHIFTS; i++)
-        cudaMalloc(&matches[i], width * height * sizeof(matches[0]));
+        cudaMalloc(&tmp[i], width * height * sizeof(matches[0]));
+    cudaMemcpyToSymbol(matches, tmp, sizeof(tmp));
+}
+
+void write_matches(int width, int height)
+{
+    u8 *tmp[NUM_SHIFTS];
+    cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp));
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        write_image(tmp[i], width, height, IMTYPE_BINARY, "matches", i);
 }
 
 void __global__ fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
@@ -415,8 +426,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // second step: match edges between images
     allocate_matches(width, height);
     fillup_matches<<<num_blocks, block_dim>>>(first_edges, second_edges, width, height);
-    for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(matches[i], width, height, IMTYPE_BINARY, "matches", i);
+    write_matches(width, height);
 
     /*
     // third step: compute scores for each pixel
@@ -440,7 +450,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
 
 int main(int argc, char *argv[])
 {
-    if (argc < 3) {
+   if (argc < 3) {
         fprintf(stderr, "usage: stereomatch [image 1] [image 2] [threshold = %g] "
                         "[square_width = %d] [times = %d] [lines = %d]\n",
                         DEFAULT_THRESHOLD, DEFAULT_SQUARE_WIDTH, DEFAULT_TIMES, DEFAULT_LINES);
@@ -494,5 +504,8 @@ int main(int argc, char *argv[])
     algorithm(first_img, second_img, first.width, first.height, params);
     stbi_image_free(first.data);
     stbi_image_free(second.data);
+
+    cudaDeviceSynchronize();
+
     return 0;
 }
