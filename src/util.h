@@ -24,6 +24,9 @@ typedef int32_t  i32;
         (y) = tmp;      \
     } while (0)
 
+#ifdef __NVCC__
+__host__ __device__
+#endif
 static inline int idx(int x, int y, int w)
 {
     x = (x + w) % w;
@@ -57,6 +60,18 @@ static inline int parse_int(const char *s, int *n)
     char *endptr;
     *n = strtol(s, &endptr, 0);
     return *n == 0 && endptr == s;
+}
+
+/*
+ * performs an integer division, rounding to the higher integer instead of the lower one.
+ * e.g. 1/2 = 1, 5/3 = 2
+ */
+#ifdef __NVCC__
+__host__ __device__
+#endif
+static inline int ceil_div(int x, int y)
+{
+    return (x + y - 1) / y;
 }
 
 #endif

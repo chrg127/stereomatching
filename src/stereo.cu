@@ -1,24 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "util.h"
+#include <math.h>
+#include "image.h"
 
-#define SIZE 128
 #define NUM_SHIFTS 30
-#define IDX(x, y, w) ((y)*(w)+(x))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define CLAMP(x, mi, ma) (MIN(MAX(x, mi), ma))
-#define SWAP(x, y, T)   \
-    do {                \
-        T tmp = (x);    \
-        (x) = (y);      \
-        (y) = tmp;      \
-    } while (0)
-
 #define DEFAULT_THRESHOLD 0.15
 #define DEFAULT_SQUARE_WIDTH 5
 #define DEFAULT_TIMES 32
@@ -27,137 +11,9 @@
 // assume maximum thread no is 1024 (32*32)
 #define BLOCK_DIM 32
 
-typedef uint8_t  u8;
-typedef uint32_t u32;
-typedef int8_t   i8;
-typedef int32_t  i32;
-
-typedef struct {
-    double *data;
-    int width, height;
-} Image;
 
 
-
-// utility functions
-
-int __host__ __device__ idx(int x, int y, int w)
-{
-    x = (x + w) % w;
-    y = (y + w) % w;
-    return y * w + x;
-}
-
-/*
- * performs an integer division, rounding to the higher integer instead of the lower one.
- * e.g. 1/2 = 1, 5/3 = 2
- */
-int __host__ __device__ ceil_div(int x, int y)
-{
-    return (x + y - 1) / y;
-}
-
-void *xmalloc(size_t nmemb, size_t size)
-{
-    void *p = calloc(nmemb, size);
-    if (!p) {
-        fprintf(stderr, "error: out of memory\n");
-        exit(1);
-    }
-    return p;
-}
-
-double parse_double(const char *s, double *n)
-{
-    char *endptr;
-    *n = strtod(s, &endptr);
-    return *n == 0 && endptr == s;
-}
-
-int parse_int(const char *s, int *n)
-{
-    char *endptr;
-    *n = strtol(s, &endptr, 0);
-    return *n == 0 && endptr == s;
-}
-
-
-// image I/O
-
-// convert values from 0..256 to 0.0..1.0
-double *convert_image(u8 *data, int width, int height)
-{
-    double *newdata = (double *) xmalloc(width * height, sizeof(double));
-    for (int i = 0; i < width * height; i++)
-        newdata[i] = data[i] / 256.0;
-    return newdata;
-}
-
-// read image, check if it's grayscale and convert it to doubles in the unit
-int read_image(const char *name, Image *out)
-{
-    int channels = 0;
-    u8 *data = stbi_load(name, &out->width, &out->height, &channels, 0);
-    if (!data) {
-        fprintf(stderr, "error reading image %s:", name);
-        perror("");
-        return 1;
-    }
-    if (channels != 1) {
-        fprintf(stderr, "error reading image %s: wrong number of channels (%d) "
-                        "(image must be grayscale)", name, channels);
-        return 1;
-    }
-    out->data = convert_image(data, out->width, out->height);
-    return 0;
-}
-
-typedef enum ImageType {
-    IMTYPE_BINARY = 0,      // an image with only 0s for white and 1s for black
-    IMTYPE_GRAY_FLOAT,  // an image where each pixel is a float between 0..1
-    IMTYPE_GRAY_INT,    // an image where each pixel is an integer from 0 to 255
-} ImageType;
-
-int get_image_value(void *p, int i, ImageType type)
-{
-    switch (type) {
-    case IMTYPE_BINARY:     return (int) (((u8 *)p)[i] == 1 ? 0 : 255);
-    case IMTYPE_GRAY_FLOAT: return (int) (((double *)p)[i] * 255.0);
-    case IMTYPE_GRAY_INT:   return (int) (((i32 *)p)[i]);
-    default:                return 0;
-    }
-}
-
-int imtype_to_size(ImageType type)
-{
-    switch (type) {
-    case IMTYPE_BINARY:     return sizeof(u8);
-    case IMTYPE_GRAY_FLOAT: return sizeof(double);
-    case IMTYPE_GRAY_INT:   return sizeof(i32);
-    default:                return 0;
-    }
-}
-
-// writes a grayscale image.
-void write_image(void *data, int width, int height, ImageType type, const char *name, int number)
-{
-    char filename[1000];
-    snprintf(filename, sizeof(filename), "%s%d.ppm", name, number);
-    FILE *f = fopen(filename, "w");
-    if (!f)
-        return;
-    void *real_data = xmalloc(width * height, imtype_to_size(type));
-    cudaMemcpy(real_data, data, width * height * imtype_to_size(type), cudaMemcpyDeviceToHost);
-    fprintf(f, "P3\n%d %d\n255\n", width, height);
-    for (int i = 0; i < width * height; i++) {
-        int v = get_image_value(real_data, i, type);
-        fprintf(f, "%d %d %d\n", v, v, v);
-    }
-}
-
-
-
-// the actual algorithm
+// step 1
 
 int __device__ find_edges_left_right(double *brightness, int width, int x, int y, double threshold)
 {
@@ -228,6 +84,8 @@ void __global__ find_all_edges(double *brightness, u8 *edges, int width, int hei
 
 
 
+// step 2
+
 // a WxH size array used to keep matches
 u8 __device__ *matches[NUM_SHIFTS];
 
@@ -244,7 +102,7 @@ void write_matches(int width, int height)
     u8 *tmp[NUM_SHIFTS];
     cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(tmp[i], width, height, IMTYPE_BINARY, "matches", i);
+        write_image_from_gpu(tmp[i], width, height, IMTYPE_BINARY, "matches", i);
 }
 
 void __global__ fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
@@ -417,11 +275,11 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // first step: find edges in both images
     u8 *first_edges; cudaMalloc(&first_edges, width * height * sizeof(u8));
     find_all_edges<<<num_blocks, block_dim>>>(first, first_edges, width, height, params.threshold);
-    write_image(first_edges, width, height, IMTYPE_BINARY, "edges", 1);
+    write_image_from_gpu(first_edges, width, height, IMTYPE_BINARY, "edges", 1);
 
     u8 *second_edges; cudaMalloc(&second_edges, width * height * sizeof(u8));
     find_all_edges<<<num_blocks, block_dim>>>(second, second_edges, width, height, params.threshold);
-    write_image(second_edges, width, height, IMTYPE_BINARY, "edges", 2);
+    write_image_from_gpu(second_edges, width, height, IMTYPE_BINARY, "edges", 2);
 
     // second step: match edges between images
     allocate_matches(width, height);
@@ -435,15 +293,15 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     allocate_scores(width, height);
     fillup_scores(width, height, 5, buf);
     find_highest_scoring_shifts(buf, winning_shifts, width, height);
-    write_image(winning_shifts, width, height, IMTYPE_GRAY_INT, "web", 1);
+    write_image_from_gpu(winning_shifts, width, height, IMTYPE_GRAY_INT, "web", 1);
 
     // fourth step: draw contour lines
     i32 *web = winning_shifts;
     u8 *out = (u8 *) xmalloc(width * height, sizeof(u8));
     web = fill_web_holes(web, width, height, times);
-    write_image(web, width, height, IMTYPE_GRAY_INT, "web", 2);
+    write_image_from_gpu(web, width, height, IMTYPE_GRAY_INT, "web", 2);
     draw_contour_map(web, width, height, lines_to_draw, out);
-    write_image(out, width, height, IMTYPE_BINARY, "output", 0);
+    write_image_from_gpu(out, width, height, IMTYPE_BINARY, "output", 0);
     */
 }
 
@@ -467,27 +325,25 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    AlgorithmParams params;
+    AlgorithmParams params = {
+        .threshold     = DEFAULT_THRESHOLD,
+        .square_width  = DEFAULT_SQUARE_WIDTH,
+        .times         = DEFAULT_TIMES,
+        .lines_to_draw = DEFAULT_LINES
+    };
 
-    params.threshold = DEFAULT_THRESHOLD;
     if (argc >= 4 && parse_double(argv[3], &params.threshold)) {
         fprintf(stderr, "error: threshold must be a number\n");
         return 1;
     }
-
-    params.square_width = DEFAULT_SQUARE_WIDTH;
     if (argc >= 5 && parse_int(argv[4], &params.square_width)) {
         fprintf(stderr, "error: square_width must be a number\n");
         return 1;
     }
-
-    params.times = DEFAULT_TIMES;
     if (argc >= 6 && parse_int(argv[5], &params.times)) {
         fprintf(stderr, "error: times must be a number\n");
         return 1;
     }
-
-    params.lines_to_draw = DEFAULT_LINES;
     if (argc >= 7 && parse_int(argv[6], &params.lines_to_draw)) {
         fprintf(stderr, "error: lines must be a number\n");
         return 1;
@@ -502,8 +358,6 @@ int main(int argc, char *argv[])
     cudaMemcpy(second_img, second.data, second.width * second.height * sizeof(double), cudaMemcpyHostToDevice);
 
     algorithm(first_img, second_img, first.width, first.height, params);
-    stbi_image_free(first.data);
-    stbi_image_free(second.data);
 
     cudaDeviceSynchronize();
 

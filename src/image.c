@@ -5,7 +5,7 @@
 #include "stb_image.h"
 
 // convert values from 0..256 to 0.0..1.0
-double *convert_image(u8 *data, int width, int height)
+static double *convert_image(u8 *data, int width, int height)
 {
     double *newdata = ALLOCATE(double, width * height);
     for (int i = 0; i < width * height; i++)
@@ -33,7 +33,7 @@ int read_image(const char *name, Image *out)
     return 0;
 }
 
-int get_image_value(void *p, int i, ImageType type)
+static int get_image_value(void *p, int i, ImageType type)
 {
     switch (type) {
     case IMTYPE_BINARY:     return (int) (((u8 *)p)[i] == 1 ? 0 : 255);
