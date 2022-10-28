@@ -1,6 +1,7 @@
 #include "util.h"
 #include <math.h>
 #include "image.h"
+#include "ghost.h"
 
 #define NUM_SHIFTS 30
 #define DEFAULT_THRESHOLD 0.15
@@ -14,12 +15,12 @@
 
 int find_edges_left_right(double *brightness, int width, int x, int y, double threshold)
 {
-    double v1 = brightness[idx(x-1, y-1, width)];
-    double v2 = brightness[idx(x-1, y  , width)];
-    double v3 = brightness[idx(x-1, y+1, width)];
-    double v4 = brightness[idx(x+1, y-1, width)];
-    double v5 = brightness[idx(x+1, y  , width)];
-    double v6 = brightness[idx(x+1, y+1, width)];
+    double v1 = brightness[IGX(x-1, y-1, width, 1)];
+    double v2 = brightness[IGX(x-1, y  , width, 1)];
+    double v3 = brightness[IGX(x-1, y+1, width, 1)];
+    double v4 = brightness[IGX(x+1, y-1, width, 1)];
+    double v5 = brightness[IGX(x+1, y  , width, 1)];
+    double v6 = brightness[IGX(x+1, y+1, width, 1)];
     double avg_left  = (v1 + v2 + v3) / 3.0;
     double avg_right = (v4 + v5 + v6) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
@@ -28,12 +29,12 @@ int find_edges_left_right(double *brightness, int width, int x, int y, double th
 
 int find_edges_top_bottom(double *brightness, int width, int x, int y, double threshold)
 {
-    double v1 = brightness[idx(x-1, y-1, width)];
-    double v2 = brightness[idx(x  , y-1, width)];
-    double v3 = brightness[idx(x+1, y-1, width)];
-    double v4 = brightness[idx(x-1, y+1, width)];
-    double v5 = brightness[idx(x  , y+1, width)];
-    double v6 = brightness[idx(x+1, y+1, width)];
+    double v1 = brightness[IGX(x-1, y-1, width, 1)];
+    double v2 = brightness[IGX(x  , y-1, width, 1)];
+    double v3 = brightness[IGX(x+1, y-1, width, 1)];
+    double v4 = brightness[IGX(x-1, y+1, width, 1)];
+    double v5 = brightness[IGX(x  , y+1, width, 1)];
+    double v6 = brightness[IGX(x+1, y+1, width, 1)];
     double avg_left  = (v1 + v2 + v3) / 3.0;
     double avg_right = (v4 + v5 + v6) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
@@ -42,12 +43,12 @@ int find_edges_top_bottom(double *brightness, int width, int x, int y, double th
 
 int find_edges_upleft_downright(double *brightness, int width, int x, int y, double threshold)
 {
-    double v1 = brightness[idx(x-1, y-1, width)];
-    double v2 = brightness[idx(x  , y-1, width)];
-    double v3 = brightness[idx(x-1, y  , width)];
-    double v4 = brightness[idx(x+1, y  , width)];
-    double v5 = brightness[idx(x  , y+1, width)];
-    double v6 = brightness[idx(x+1, y+1, width)];
+    double v1 = brightness[IGX(x-1, y-1, width, 1)];
+    double v2 = brightness[IGX(x  , y-1, width, 1)];
+    double v3 = brightness[IGX(x-1, y  , width, 1)];
+    double v4 = brightness[IGX(x+1, y  , width, 1)];
+    double v5 = brightness[IGX(x  , y+1, width, 1)];
+    double v6 = brightness[IGX(x+1, y+1, width, 1)];
     double avg_left  = (v1 + v2 + v3) / 3.0;
     double avg_right = (v4 + v5 + v6) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
@@ -56,12 +57,12 @@ int find_edges_upleft_downright(double *brightness, int width, int x, int y, dou
 
 int find_edges_downleft_upright(double *brightness, int width, int x, int y, double threshold)
 {
-    double v1 = brightness[idx(x-1, y+1, width)];
-    double v2 = brightness[idx(x  , y+1, width)];
-    double v3 = brightness[idx(x-1, y  , width)];
-    double v4 = brightness[idx(x  , y-1, width)];
-    double v5 = brightness[idx(x+1, y-1, width)];
-    double v6 = brightness[idx(x+1, y  , width)];
+    double v1 = brightness[IGX(x-1, y+1, width, 1)];
+    double v2 = brightness[IGX(x  , y+1, width, 1)];
+    double v3 = brightness[IGX(x-1, y  , width, 1)];
+    double v4 = brightness[IGX(x  , y-1, width, 1)];
+    double v5 = brightness[IGX(x+1, y-1, width, 1)];
+    double v6 = brightness[IGX(x+1, y  , width, 1)];
     double avg_left  = (v1 + v2 + v3) / 3.0;
     double avg_right = (v4 + v5 + v6) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
@@ -360,7 +361,10 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    algorithm(first.data, second.data, first.width, first.height, params);
+    double *first_ghost  = ADD_GHOST(double, first.data,  first.width,  first.height,  1, 0);
+    double *second_ghost = ADD_GHOST(double, second.data, second.width, second.height, 1, 0);
+
+    algorithm(first_ghost, second_ghost, first.width, first.height, params);
 
     free(first.data);
     free(second.data);
