@@ -361,8 +361,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    double *first_ghost  = ADD_GHOST(double, first.data,  first.width,  first.height,  1, 0);
-    double *second_ghost = ADD_GHOST(double, second.data, second.width, second.height, 1, 0);
+    double *first_ghost  = ghost_add_double(first.data,  first.width,  first.height,  1, 128.0);
+    double *second_ghost = ghost_add_double(second.data, second.width, second.height, 1, 128.0);
 
     algorithm(first_ghost, second_ghost, first.width, first.height, params);
 
