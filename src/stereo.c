@@ -73,7 +73,7 @@ void find_all_edges(double *brightness, int width, int height, double threshold,
 {
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
-            edges[idx(x, y, width)] =
+            edges[IGX(x, y, width, 30)] =
                 find_edges_left_right(brightness, width, x, y, threshold)
              || find_edges_top_bottom(brightness, width, x, y, threshold)
              || find_edges_upleft_downright(brightness, width, x, y, threshold)
@@ -89,16 +89,18 @@ void find_all_edges(double *brightness, int width, int height, double threshold,
 // a WxH size array used to keep matches
 u8 *matches[NUM_SHIFTS];
 
+#define MATCHES_GHOST_SIZE 5
+
 void allocate_matches(int width, int height)
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
-        matches[i] = ALLOCATE(u8, width * height);
+        matches[i] = ghost_alloc_u8(width, height, MATCHES_GHOST_SIZE, 0);
 }
 
-void free_matches()
+void free_matches(int width)
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
-        free(matches[i]);
+        GHOST_FREE(u8, matches[i], width, MATCHES_GHOST_SIZE);
 }
 
 void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
@@ -106,10 +108,11 @@ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int index = idx(x,   y, width),
-                    shift = idx(x+i, y, width);
+                // int index = IGX(x,   y, width),
+                //     shift = IGX(x+i, y, width);
+                matches[i][IGX(x, y, width, MATCHES_GHOST_SIZE)] =
+                    left_edges[IGX(x, y, width, 30)] == right_edges[IGX(x+i, y, width, 30)];
                 // ^ the +i accomplishes the sliding process
-                matches[i][index] = left_edges[index] == right_edges[shift];
             }
         }
     }
@@ -152,9 +155,10 @@ void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width,
         for (int sx = 0; sx < square_width; sx++) {
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    int cur = idx(x, y, width);
-                    int rel = idx(x + sx - half,
-                                  y + sy - half, width);
+                    int cur = IDX(x, y, width);
+                    int rel = IGX(x + sx - half,
+                                  y + sy - half,
+                                  width, MATCHES_GHOST_SIZE);
                     total[cur] += (i32) pixels[rel];
                 }
             }
@@ -166,16 +170,16 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
 {
     for (int i = 0; i < NUM_SHIFTS; i++) {
         addup_pixels_in_square(matches[i], width, height, square_width, sum);
-        write_image(sum, width, height, IMTYPE_GRAY_INT, "score_all", i);
+        write_image(sum, width, height, 0, IMTYPE_GRAY_INT, "score_all", i);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int index = idx(x, y, width);
+                int index = IDX(x, y, width);
                 // record a score whenever there was a match-up
-                if (matches[i][index] == 1)
+                if (matches[i][IGX(x, y, width, MATCHES_GHOST_SIZE)] == 1)
                     scores[i][index] = sum[index];
             }
         }
-        write_image(scores[i], width, height, IMTYPE_GRAY_INT, "score_edges", i);
+        write_image(scores[i], width, height, 0, IMTYPE_GRAY_INT, "score_edges", i);
     }
 }
 
@@ -190,19 +194,19 @@ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int widt
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int index = idx(x, y, width);
+                int index = IDX(x, y, width);
                 if (scores[i][index] > best_scores[index])
                     best_scores[index] = scores[i][index];
             }
         }
     }
-    write_image(best_scores, width, height, IMTYPE_GRAY_INT, "score_best", 0);
+    write_image(best_scores, width, height, 0, IMTYPE_GRAY_INT, "score_best", 0);
     // the following loop records a 'winning' shift at every pixel
     // whose score is the best.
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int index = idx(x, y, width);
+                int index = IDX(x, y, width);
                 if (scores[i][index] == best_scores[index])
                     winning_shifts[index] = i+1;
             }
@@ -225,12 +229,12 @@ i32 *fill_web_holes(i32 *web, int width, int height, int times)
     for (int i = 0; i < times; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                if (tmp[idx(x, y, width)] == 0) {
-                    web[idx(x, y, width)] =
-                        (tmp[idx(x+1, y,   width)]
-                       + tmp[idx(x,   y+1, width)]
-                       + tmp[idx(x-1, y,   width)]
-                       + tmp[idx(x,   y-1, width)]) / 4;
+                if (tmp[IDX(x, y, width)] == 0) {
+                    web[IDX(x, y, width)] =
+                        (tmp[IDX(x+1, y,   width)]
+                       + tmp[IDX(x,   y+1, width)]
+                       + tmp[IDX(x-1, y,   width)]
+                       + tmp[IDX(x,   y-1, width)]) / 4;
                 }
             }
         }
@@ -268,8 +272,8 @@ void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_
     // contour lines.
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            image_output[idx(x, y, width)] =
-                ((web[idx(x, y, width)] - min_elevation) % interval) == 0;
+            image_output[IDX(x, y, width)] =
+                ((web[IDX(x, y, width)] - min_elevation) % interval) == 0;
         }
     }
 }
@@ -288,34 +292,34 @@ typedef struct AlgorithmParams {
 void algorithm(double *first, double *second, int width, int height, AlgorithmParams params)
 {
     // first step: find edges in both images
-    u8 *first_edges  = ALLOCATE(u8, width * height),
-       *second_edges = ALLOCATE(u8, width * height);
+    u8 *first_edges  = ghost_alloc_u8(width, height, 30, 0),
+       *second_edges = ghost_alloc_u8(width, height, 30, 0);
     find_all_edges(first,  width, height, params.threshold, first_edges);
     find_all_edges(second, width, height, params.threshold, second_edges);
-    write_image(first_edges,  width, height, IMTYPE_BINARY, "edges", 1);
-    write_image(second_edges, width, height, IMTYPE_BINARY, "edges", 2);
+    write_image(first_edges,  width, height, 30, IMTYPE_BINARY, "edges", 1);
+    write_image(second_edges, width, height, 30, IMTYPE_BINARY, "edges", 2);
 
     // second step: match edges between images
     allocate_matches(width, height);
     fillup_matches(first_edges, second_edges, width, height);
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(matches[i], width, height, IMTYPE_BINARY, "matches", i);
+        write_image(matches[i], width, height, MATCHES_GHOST_SIZE, IMTYPE_BINARY, "matches", i);
 
-    // third step: compute scores for each pixel
+    // // third step: compute scores for each pixel
     i32 *buf            = ALLOCATE(i32, width * height),
         *winning_shifts = ALLOCATE(i32, width * height);
     allocate_scores(width, height);
     fillup_scores(width, height, params.square_width, buf);
     find_highest_scoring_shifts(buf, winning_shifts, width, height);
-    write_image(winning_shifts, width, height, IMTYPE_GRAY_INT, "web", 1);
+    write_image(winning_shifts, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
 
     // fourth step: draw contour lines
     i32 *web = winning_shifts;
     u8 *out = ALLOCATE(u8, width * height);
     web = fill_web_holes(web, width, height, params.times);
-    write_image(web, width, height, IMTYPE_GRAY_INT, "web", 2);
+    write_image(web, width, height, 0, IMTYPE_GRAY_INT, "web", 2);
     draw_contour_map(web, width, height, params.lines_to_draw, out);
-    write_image(out, width, height, IMTYPE_BINARY, "output", 0);
+    write_image(out, width, height, 0, IMTYPE_BINARY, "output", 0);
 }
 
 int main(int argc, char *argv[])

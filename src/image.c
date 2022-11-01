@@ -1,6 +1,7 @@
 #include "image.h"
 
 #include <stdio.h>
+#include "ghost.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -33,18 +34,18 @@ int read_image(const char *name, Image *out)
     return 0;
 }
 
-static int get_image_value(void *p, int i, ImageType type)
+static int get_image_value(void *p, int x, int y, int width, int ghost_size, ImageType type)
 {
     switch (type) {
-    case IMTYPE_BINARY:     return (int) (((u8 *)p)[i] == 1 ? 0 : 255);
-    case IMTYPE_GRAY_FLOAT: return (int) (((double *)p)[i] * 255.0);
-    case IMTYPE_GRAY_INT:   return (int) (((i32 *)p)[i]);
+    case IMTYPE_BINARY:     return (int) (((u8 *)p)[IGX(x, y, width, ghost_size)] == 1 ? 0 : 255);
+    case IMTYPE_GRAY_FLOAT: return (int) (((double *)p)[IGX(x, y, width, ghost_size)] * 255.0);
+    case IMTYPE_GRAY_INT:   return (int) (((i32 *)p)[IGX(x, y, width, ghost_size)]);
     default:                return 0;
     }
 }
 
 // writes a grayscale image.
-void write_image(void *data, int width, int height, ImageType type, const char *name, int number)
+void write_image(void *data, int width, int height, int ghost_size, ImageType type, const char *name, int number)
 {
     char filename[1000];
     snprintf(filename, sizeof(filename), "%s%d.ppm", name, number);
@@ -52,8 +53,10 @@ void write_image(void *data, int width, int height, ImageType type, const char *
     if (!f)
         return;
     fprintf(f, "P3\n%d %d\n255\n", width, height);
-    for (int i = 0; i < width * height; i++) {
-        int v = get_image_value(data, i, type);
-        fprintf(f, "%d %d %d\n", v, v, v);
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int v = get_image_value(data, x, y, width, ghost_size, type);
+            fprintf(f, "%d %d %d\n", v, v, v);
+        }
     }
 }

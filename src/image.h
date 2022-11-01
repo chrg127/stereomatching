@@ -19,7 +19,7 @@ typedef enum ImageType {
 } ImageType;
 
 int read_image(const char *name, Image *out);
-void write_image(void *data, int width, int height, ImageType type, const char *name, int number);
+void write_image(void *data, int width, int height, int ghost_size, ImageType type, const char *name, int number);
 
 #ifdef __NVCC__
 void write_image_from_gpu(void *data, int width, int height, ImageType type, const char *name, int number);
