@@ -25,15 +25,15 @@ typedef int32_t  i32;
         (y) = tmp;      \
     } while (0)
 
-// #ifdef __NVCC__
-// __host__ __device__
-// #endif
-// static inline int idx(int x, int y, int w)
-// {
-//     x = (x + w) % w;
-//     y = (y + w) % w;
-//     return y * w + x;
-// }
+#ifdef __NVCC__
+__host__ __device__
+#endif
+static inline int idx(int x, int y, int w)
+{
+    x = (x + w) % w;
+    y = (y + w) % w;
+    return y * w + x;
+}
 
 static inline void *xmalloc(size_t size)
 {
