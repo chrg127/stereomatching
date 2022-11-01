@@ -8,6 +8,9 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <assert.h>
+#ifdef __NVCC__
+#include "helper_cuda.h"
+#endif
 
 typedef uint8_t  u8;
 typedef uint32_t u32;
@@ -74,5 +77,46 @@ static inline int ceil_div(int x, int y)
 {
     return (x + y - 1) / y;
 }
+
+// CUDA specific helper functions
+
+#ifdef __NVCC__
+
+static inline void *cuda_xmalloc(size_t size)
+{
+    void *p;
+    checkCudaErrors(cudaMalloc(&p, size));
+    if (!p) {
+        fprintf(stderr, "error: out of memory\n");
+        exit(1);
+    }
+    checkCudaErrors(cudaMemset(p, 0, size));
+    return p;
+}
+
+static inline void *make_gpu_copy(void *hp, size_t size)
+{
+    void *dp = cuda_xmalloc(size);
+    checkCudaErrors(cudaMemcpy(dp, hp, size, cudaMemcpyHostToDevice));
+    return dp;
+}
+
+static inline void *make_host_copy(void *hp, size_t size)
+{
+    void *dp = cuda_xmalloc(size);
+    checkCudaErrors(cudaMemcpy(dp, hp, size, cudaMemcpyDeviceToHost));
+    return dp;
+}
+
+#define ALLOCATE_GPU(type, count) \
+    (type *) cuda_xmalloc(sizeof(type) * count)
+
+#define MAKE_GPU_COPY(type, p, count) \
+    (type *) make_gpu_copy(p, sizeof(type) * count)
+
+#define MAKE_HOST_COPY(type, p, count) \
+    (type *) make_host_copy(p, sizeof(type) * count)
+
+#endif
 
 #endif

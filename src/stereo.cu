@@ -93,7 +93,7 @@ void allocate_matches(int width, int height)
 {
     void *tmp[NUM_SHIFTS];
     for (int i = 0; i < NUM_SHIFTS; i++)
-        cudaMalloc(&tmp[i], width * height * sizeof(matches[0]));
+        tmp[i] = ALLOCATE_GPU(u8, width * height);
     cudaMemcpyToSymbol(matches, tmp, sizeof(tmp));
 }
 
@@ -133,11 +133,11 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     const dim3 block_dim  = dim3(BLOCK_DIM, BLOCK_DIM);
 
     // first step: find edges in both images
-    u8 *first_edges; cudaMalloc(&first_edges, width * height * sizeof(u8));
+    u8 *first_edges = ALLOCATE_GPU(u8, width * height);
     find_all_edges<<<num_blocks, block_dim>>>(first, first_edges, width, height, params.threshold);
     write_image_from_gpu(first_edges, width, height, 0, IMTYPE_BINARY, "edges", 1);
 
-    u8 *second_edges; cudaMalloc(&second_edges, width * height * sizeof(u8));
+    u8 *second_edges = ALLOCATE_GPU(u8, width * height);
     find_all_edges<<<num_blocks, block_dim>>>(second, second_edges, width, height, params.threshold);
     write_image_from_gpu(second_edges, width, height, 0, IMTYPE_BINARY, "edges", 2);
 
@@ -191,14 +191,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    double *first_img;
-    cudaMalloc(&first_img,  first.width  * first.height  * sizeof(double));
-    cudaMemcpy(first_img, first.data, first.width * first.height * sizeof(double), cudaMemcpyHostToDevice);
-
-    double *second_img;
-    cudaMalloc(&second_img, second.width * second.height * sizeof(double));
-    cudaMemcpy(second_img, second.data, second.width * second.height * sizeof(double), cudaMemcpyHostToDevice);
-
+    double *first_img  = MAKE_GPU_COPY(double, first.data,  first.width * first.height);
+    double *second_img = MAKE_GPU_COPY(double, second.data, first.width * first.height);
     algorithm(first_img, second_img, first.width, first.height, params);
 
     cudaDeviceSynchronize();
