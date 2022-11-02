@@ -10,17 +10,17 @@ static inline type *ghost_alloc_##type(int width, int height, int ghost_size, ty
     type *p = ALLOCATE(type, array_size);                                                       \
     for (size_t i = 0; i < array_size; i++)                                                     \
         p[i] = start_value;                                                                     \
-    return p + (width + ghost_size * 2 + ghost_size);                                           \
+    return &p[IDX(ghost_size, ghost_size, width + ghost_size * 2)];                             \
 }                                                                                               \
 
-GHOST_ALLOC_DEFINITION(double)
-GHOST_ALLOC_DEFINITION(i32)
-GHOST_ALLOC_DEFINITION(u8)
+void *real_pointer(void *p, int elem_size, int width, int ghost_size)
+{
+    return (void *) ((u8 *) p) - IDX(ghost_size, ghost_size, width + ghost_size * 2) * elem_size;
+}
 
 static inline void ghost_free(void *p, int elem_size, int width, int ghost_size)
 {
-    u8 *realp = ((u8 *) p) - (width + ghost_size * 2 + ghost_size) * elem_size;
-    free(realp);
+    free(real_pointer(p, elem_size, width, ghost_size));
 }
 
 #define GHOST_FREE(type, p, width, ghost_size) \
@@ -37,6 +37,10 @@ static inline type *ghost_add_##type(type *p, int width, int height, int ghost_s
                width * sizeof(type));                                                                   \
     return np;                                                                                          \
 }
+
+GHOST_ALLOC_DEFINITION(double)
+GHOST_ALLOC_DEFINITION(i32)
+GHOST_ALLOC_DEFINITION(u8)
 
 GHOST_ADD_DEFINITION(double)
 GHOST_ADD_DEFINITION(i32)
