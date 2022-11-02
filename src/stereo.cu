@@ -8,6 +8,7 @@
 #define DEFAULT_SQUARE_WIDTH 5
 #define DEFAULT_TIMES 32
 #define DEFAULT_LINES 10
+#define MATCHES_GHOST_SIZE 5
 
 
 
@@ -91,7 +92,7 @@ void allocate_matches(int width, int height)
 {
     void *tmp[NUM_SHIFTS];
     for (int i = 0; i < NUM_SHIFTS; i++)
-        tmp[i] = ALLOCATE_GPU(u8, width * height);
+        tmp[i] = ghost_alloc_gpu_u8(width, height, MATCHES_GHOST_SIZE, 0);
     cudaMemcpyToSymbol(matches, tmp, sizeof(tmp));
 }
 
@@ -103,24 +104,22 @@ void write_matches(int width, int height)
         write_image_from_gpu(tmp[i], width, height, 0, IMTYPE_BINARY, "matches", i);
 }
 
-/*
 void free_matches(int width)
 {
+    u8 *tmp[NUM_SHIFTS];
+    cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        GHOST_FREE(u8, matches[i], width, MATCHES_GHOST_SIZE);
+        GHOST_FREE_GPU(u8, tmp[i], width, MATCHES_GHOST_SIZE);
 }
-*/
 
 void __global__ fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
-    for (int i = 0; i < NUM_SHIFTS; i++) {
-        int index = idx(x,   y, width),
-            shift = idx(x+i, y, width);
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        matches[i][IGX(x, y, width, MATCHES_GHOST_SIZE)] =
+            left_edges[IGX(x, y, width, 30)] == right_edges[IGX(x+i, y, width, 30)];
         // ^ the +i accomplishes the sliding process
-        matches[i][index] = left_edges[index] == right_edges[shift];
-    }
 }
 
 
@@ -138,18 +137,23 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
     const dim3 block_dim  = dim3(BLOCK_DIM_2D, BLOCK_DIM_2D);
 
-    // first step: find edges in both images
     u8 *first_edges  = ghost_alloc_gpu_u8(width, height, 30, 0),
        *second_edges = ghost_alloc_gpu_u8(width, height, 30, 0);
+    allocate_matches(width, height);
+
+    // first step: find edges in both images
     find_all_edges<<<num_blocks, block_dim>>>(first,  width, height, params.threshold, first_edges);
     find_all_edges<<<num_blocks, block_dim>>>(second, width, height, params.threshold, second_edges);
     write_image_from_gpu(first_edges,  width, height, 30, IMTYPE_BINARY, "edges", 1);
     write_image_from_gpu(second_edges, width, height, 30, IMTYPE_BINARY, "edges", 2);
 
     // second step: match edges between images
-    allocate_matches(width, height);
     fillup_matches<<<num_blocks, block_dim>>>(first_edges, second_edges, width, height);
     write_matches(width, height);
+
+    GHOST_FREE_GPU(u8, first_edges,  width, 30);
+    GHOST_FREE_GPU(u8, second_edges, width, 30);
+    free_matches(width);
 }
 
 
@@ -196,11 +200,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    double *first_img  = ghost_add_gpu_double(first.data,  first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
-    double *second_img = ghost_add_gpu_double(second.data, first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
-    algorithm(first_img, second_img, first.width, first.height, params);
+    double *first_ghost  = ghost_add_gpu_double(first.data,  first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
+    double *second_ghost = ghost_add_gpu_double(second.data, first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
 
+    algorithm(first_ghost, second_ghost, first.width, first.height, params);
     cudaDeviceSynchronize();
+
+    GHOST_FREE_GPU(double, first_ghost,  first.width, 1);
+    GHOST_FREE_GPU(double, second_ghost, first.width, 1);
+    free(first.data);
+    free(second.data);
 
     return 0;
 }
