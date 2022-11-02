@@ -82,6 +82,9 @@ static inline int ceil_div(int x, int y)
 
 #ifdef __NVCC__
 
+#define BLOCK_DIM 1024
+#define BLOCK_DIM_2D 32
+
 static inline void *cuda_xmalloc(size_t size)
 {
     void *p;
@@ -101,11 +104,11 @@ static inline void *make_gpu_copy(void *hp, size_t size)
     return dp;
 }
 
-static inline void *make_host_copy(void *hp, size_t size)
+static inline void *make_host_copy(void *dp, size_t size)
 {
-    void *dp = cuda_xmalloc(size);
-    checkCudaErrors(cudaMemcpy(dp, hp, size, cudaMemcpyDeviceToHost));
-    return dp;
+    void *hp = xmalloc(size);
+    checkCudaErrors(cudaMemcpy(hp, dp, size, cudaMemcpyDeviceToHost));
+    return hp;
 }
 
 #define ALLOCATE_GPU(type, count) \
@@ -117,6 +120,10 @@ static inline void *make_host_copy(void *hp, size_t size)
 #define MAKE_HOST_COPY(type, p, count) \
     (type *) make_host_copy(p, sizeof(type) * count)
 
-#endif
+__global__ void fill_array_double(double *arr, size_t size, double value);
+__global__ void fill_array_i32(i32 *arr, size_t size, i32 value);
+__global__ void fill_array_u8(u8 *arr, size_t size, u8 value);
+
+#endif // __NVCC__
 
 #endif

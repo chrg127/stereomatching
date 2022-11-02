@@ -8,6 +8,7 @@
 #define DEFAULT_SQUARE_WIDTH 5
 #define DEFAULT_TIMES 32
 #define DEFAULT_LINES 10
+#define MATCHES_GHOST_SIZE 5
 
 
 
@@ -89,12 +90,16 @@ void find_all_edges(double *brightness, int width, int height, double threshold,
 // a WxH size array used to keep matches
 u8 *matches[NUM_SHIFTS];
 
-#define MATCHES_GHOST_SIZE 5
-
 void allocate_matches(int width, int height)
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
         matches[i] = ghost_alloc_u8(width, height, MATCHES_GHOST_SIZE, 0);
+}
+
+void write_matches(int width, int height)
+{
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        write_image(matches[i], width, height, MATCHES_GHOST_SIZE, IMTYPE_BINARY, "matches", i);
 }
 
 void free_matches(int width)
@@ -108,8 +113,6 @@ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                // int index = IGX(x,   y, width),
-                //     shift = IGX(x+i, y, width);
                 matches[i][IGX(x, y, width, MATCHES_GHOST_SIZE)] =
                     left_edges[IGX(x, y, width, 30)] == right_edges[IGX(x+i, y, width, 30)];
                 // ^ the +i accomplishes the sliding process
@@ -302,8 +305,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // second step: match edges between images
     allocate_matches(width, height);
     fillup_matches(first_edges, second_edges, width, height);
-    for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(matches[i], width, height, MATCHES_GHOST_SIZE, IMTYPE_BINARY, "matches", i);
+    write_matches(width, height);
 
     // // third step: compute scores for each pixel
     i32 *buf            = ALLOCATE(i32, width * height),

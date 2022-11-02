@@ -1,6 +1,7 @@
 #include "util.h"
 #include <math.h>
 #include "image.h"
+#include "ghost.h"
 
 #define NUM_SHIFTS 30
 #define DEFAULT_THRESHOLD 0.15
@@ -8,21 +9,18 @@
 #define DEFAULT_TIMES 32
 #define DEFAULT_LINES 10
 
-// assume maximum thread no is 1024 (32*32)
-#define BLOCK_DIM 32
-
 
 
 // step 1
 
 int __device__ find_edges_left_right(double *brightness, int width, int x, int y, double threshold)
 {
-    double v1 = brightness[idx(x-1, y-1, width)];
-    double v2 = brightness[idx(x-1, y  , width)];
-    double v3 = brightness[idx(x-1, y+1, width)];
-    double v4 = brightness[idx(x+1, y-1, width)];
-    double v5 = brightness[idx(x+1, y  , width)];
-    double v6 = brightness[idx(x+1, y+1, width)];
+    double v1 = brightness[IGX(x-1, y-1, width, 1)];
+    double v2 = brightness[IGX(x-1, y  , width, 1)];
+    double v3 = brightness[IGX(x-1, y+1, width, 1)];
+    double v4 = brightness[IGX(x+1, y-1, width, 1)];
+    double v5 = brightness[IGX(x+1, y  , width, 1)];
+    double v6 = brightness[IGX(x+1, y+1, width, 1)];
     double avg_left  = (v1 + v2 + v3) / 3.0;
     double avg_right = (v4 + v5 + v6) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
@@ -31,12 +29,12 @@ int __device__ find_edges_left_right(double *brightness, int width, int x, int y
 
 int __device__ find_edges_top_bottom(double *brightness, int width, int x, int y, double threshold)
 {
-    double v1 = brightness[idx(x-1, y-1, width)];
-    double v2 = brightness[idx(x  , y-1, width)];
-    double v3 = brightness[idx(x+1, y-1, width)];
-    double v4 = brightness[idx(x-1, y+1, width)];
-    double v5 = brightness[idx(x  , y+1, width)];
-    double v6 = brightness[idx(x+1, y+1, width)];
+    double v1 = brightness[IGX(x-1, y-1, width, 1)];
+    double v2 = brightness[IGX(x  , y-1, width, 1)];
+    double v3 = brightness[IGX(x+1, y-1, width, 1)];
+    double v4 = brightness[IGX(x-1, y+1, width, 1)];
+    double v5 = brightness[IGX(x  , y+1, width, 1)];
+    double v6 = brightness[IGX(x+1, y+1, width, 1)];
     double avg_left  = (v1 + v2 + v3) / 3.0;
     double avg_right = (v4 + v5 + v6) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
@@ -45,12 +43,12 @@ int __device__ find_edges_top_bottom(double *brightness, int width, int x, int y
 
 int __device__ find_edges_upleft_downright(double *brightness, int width, int x, int y, double threshold)
 {
-    double v1 = brightness[idx(x-1, y-1, width)];
-    double v2 = brightness[idx(x  , y-1, width)];
-    double v3 = brightness[idx(x-1, y  , width)];
-    double v4 = brightness[idx(x+1, y  , width)];
-    double v5 = brightness[idx(x  , y+1, width)];
-    double v6 = brightness[idx(x+1, y+1, width)];
+    double v1 = brightness[IGX(x-1, y-1, width, 1)];
+    double v2 = brightness[IGX(x  , y-1, width, 1)];
+    double v3 = brightness[IGX(x-1, y  , width, 1)];
+    double v4 = brightness[IGX(x+1, y  , width, 1)];
+    double v5 = brightness[IGX(x  , y+1, width, 1)];
+    double v6 = brightness[IGX(x+1, y+1, width, 1)];
     double avg_left  = (v1 + v2 + v3) / 3.0;
     double avg_right = (v4 + v5 + v6) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
@@ -59,23 +57,23 @@ int __device__ find_edges_upleft_downright(double *brightness, int width, int x,
 
 int __device__ find_edges_downleft_upright(double *brightness, int width, int x, int y, double threshold)
 {
-    double v1 = brightness[idx(x-1, y+1, width)];
-    double v2 = brightness[idx(x  , y+1, width)];
-    double v3 = brightness[idx(x-1, y  , width)];
-    double v4 = brightness[idx(x  , y-1, width)];
-    double v5 = brightness[idx(x+1, y-1, width)];
-    double v6 = brightness[idx(x+1, y  , width)];
+    double v1 = brightness[IGX(x-1, y+1, width, 1)];
+    double v2 = brightness[IGX(x  , y+1, width, 1)];
+    double v3 = brightness[IGX(x-1, y  , width, 1)];
+    double v4 = brightness[IGX(x  , y-1, width, 1)];
+    double v5 = brightness[IGX(x+1, y-1, width, 1)];
+    double v6 = brightness[IGX(x+1, y  , width, 1)];
     double avg_left  = (v1 + v2 + v3) / 3.0;
     double avg_right = (v4 + v5 + v6) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-void __global__ find_all_edges(double *brightness, u8 *edges, int width, int height, double threshold)
+void __global__ find_all_edges(double *brightness, int width, int height, double threshold, u8 *edges)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
-    edges[IDX(x, y, width)] =
+    edges[IGX(x, y, width, 30)] =
         find_edges_left_right(brightness, width, x, y, threshold)
      || find_edges_top_bottom(brightness, width, x, y, threshold)
      || find_edges_upleft_downright(brightness, width, x, y, threshold)
@@ -105,6 +103,14 @@ void write_matches(int width, int height)
         write_image_from_gpu(tmp[i], width, height, 0, IMTYPE_BINARY, "matches", i);
 }
 
+/*
+void free_matches(int width)
+{
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        GHOST_FREE(u8, matches[i], width, MATCHES_GHOST_SIZE);
+}
+*/
+
 void __global__ fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -128,18 +134,17 @@ typedef struct AlgorithmParams {
 
 void algorithm(double *first, double *second, int width, int height, AlgorithmParams params)
 {
-    const int num_blocks_side = ceil_div(width, BLOCK_DIM);
+    const int num_blocks_side = ceil_div(width, BLOCK_DIM_2D);
     const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
-    const dim3 block_dim  = dim3(BLOCK_DIM, BLOCK_DIM);
+    const dim3 block_dim  = dim3(BLOCK_DIM_2D, BLOCK_DIM_2D);
 
     // first step: find edges in both images
-    u8 *first_edges = ALLOCATE_GPU(u8, width * height);
-    find_all_edges<<<num_blocks, block_dim>>>(first, first_edges, width, height, params.threshold);
-    write_image_from_gpu(first_edges, width, height, 0, IMTYPE_BINARY, "edges", 1);
-
-    u8 *second_edges = ALLOCATE_GPU(u8, width * height);
-    find_all_edges<<<num_blocks, block_dim>>>(second, second_edges, width, height, params.threshold);
-    write_image_from_gpu(second_edges, width, height, 0, IMTYPE_BINARY, "edges", 2);
+    u8 *first_edges  = ghost_alloc_gpu_u8(width, height, 30, 0),
+       *second_edges = ghost_alloc_gpu_u8(width, height, 30, 0);
+    find_all_edges<<<num_blocks, block_dim>>>(first,  width, height, params.threshold, first_edges);
+    find_all_edges<<<num_blocks, block_dim>>>(second, width, height, params.threshold, second_edges);
+    write_image_from_gpu(first_edges,  width, height, 30, IMTYPE_BINARY, "edges", 1);
+    write_image_from_gpu(second_edges, width, height, 30, IMTYPE_BINARY, "edges", 2);
 
     // second step: match edges between images
     allocate_matches(width, height);
@@ -191,8 +196,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    double *first_img  = MAKE_GPU_COPY(double, first.data,  first.width * first.height);
-    double *second_img = MAKE_GPU_COPY(double, second.data, first.width * first.height);
+    double *first_img  = ghost_add_gpu_double(first.data,  first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
+    double *second_img = ghost_add_gpu_double(second.data, first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
     algorithm(first_img, second_img, first.width, first.height, params);
 
     cudaDeviceSynchronize();

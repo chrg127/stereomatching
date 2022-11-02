@@ -2,7 +2,7 @@ name := stereomatch
 name_par := stereopar
 _objs 		 := image.c.o
 _objs_serial := stereo.c.o
-_objs_par 	 := stereo.cu.o image.cu.o
+_objs_par 	 := stereo.cu.o image.cu.o util.cu.o
 CC := gcc
 NVCC := nvcc
 CFLAGS := -g -Wall -Wextra -pedantic -std=c11
