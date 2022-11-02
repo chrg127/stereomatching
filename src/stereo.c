@@ -134,6 +134,12 @@ void allocate_scores(int width, int height)
         scores[i] = ALLOCATE(i32, width * height);
 }
 
+void write_scores(int width, int height)
+{
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        write_image(scores[i], width, height, 0, IMTYPE_GRAY_INT, "score_edges", i);
+}
+
 void free_scores()
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
@@ -203,7 +209,6 @@ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int widt
             }
         }
     }
-    write_image(best_scores, width, height, 0, IMTYPE_GRAY_INT, "score_best", 0);
     // the following loop records a 'winning' shift at every pixel
     // whose score is the best.
     for (int i = 0; i < NUM_SHIFTS; i++) {
@@ -314,7 +319,9 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
 
     // third step: compute scores for each pixel
     fillup_scores(width, height, params.square_width, buf);
+    write_scores(width, height);
     find_highest_scoring_shifts(buf, web, width, height);
+    write_image(buf, width, height, 0, IMTYPE_GRAY_INT, "score_best", 0);
     write_image(web, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
 
     // fourth step: draw contour lines

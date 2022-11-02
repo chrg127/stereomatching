@@ -14,7 +14,7 @@
 
 // step 1
 
-int __device__ find_edges_left_right(double *brightness, int width, int x, int y, double threshold)
+__device__ int find_edges_left_right(double *brightness, int width, int x, int y, double threshold)
 {
     double v1 = brightness[IGX(x-1, y-1, width, 1)];
     double v2 = brightness[IGX(x-1, y  , width, 1)];
@@ -28,7 +28,7 @@ int __device__ find_edges_left_right(double *brightness, int width, int x, int y
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-int __device__ find_edges_top_bottom(double *brightness, int width, int x, int y, double threshold)
+__device__ int find_edges_top_bottom(double *brightness, int width, int x, int y, double threshold)
 {
     double v1 = brightness[IGX(x-1, y-1, width, 1)];
     double v2 = brightness[IGX(x  , y-1, width, 1)];
@@ -42,7 +42,7 @@ int __device__ find_edges_top_bottom(double *brightness, int width, int x, int y
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-int __device__ find_edges_upleft_downright(double *brightness, int width, int x, int y, double threshold)
+__device__ int find_edges_upleft_downright(double *brightness, int width, int x, int y, double threshold)
 {
     double v1 = brightness[IGX(x-1, y-1, width, 1)];
     double v2 = brightness[IGX(x  , y-1, width, 1)];
@@ -56,7 +56,7 @@ int __device__ find_edges_upleft_downright(double *brightness, int width, int x,
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-int __device__ find_edges_downleft_upright(double *brightness, int width, int x, int y, double threshold)
+__device__ int find_edges_downleft_upright(double *brightness, int width, int x, int y, double threshold)
 {
     double v1 = brightness[IGX(x-1, y+1, width, 1)];
     double v2 = brightness[IGX(x  , y+1, width, 1)];
@@ -70,7 +70,7 @@ int __device__ find_edges_downleft_upright(double *brightness, int width, int x,
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-void __global__ find_all_edges(double *brightness, int width, int height, double threshold, u8 *edges)
+__global__ void find_all_edges(double *brightness, int width, int height, double threshold, u8 *edges)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -86,33 +86,33 @@ void __global__ find_all_edges(double *brightness, int width, int height, double
 // step 2
 
 // a WxH size array used to keep matches
-u8 __device__ *matches[NUM_SHIFTS];
+__device__ u8 *matches[NUM_SHIFTS];
 
 void allocate_matches(int width, int height)
 {
-    void *tmp[NUM_SHIFTS];
+    u8 *tmp[NUM_SHIFTS];
     for (int i = 0; i < NUM_SHIFTS; i++)
         tmp[i] = ghost_alloc_gpu_u8(width, height, MATCHES_GHOST_SIZE, 0);
-    cudaMemcpyToSymbol(matches, tmp, sizeof(tmp));
+    checkCudaErrors(cudaMemcpyToSymbol(matches, tmp, sizeof(tmp)));
 }
 
 void write_matches(int width, int height)
 {
     u8 *tmp[NUM_SHIFTS];
-    cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp));
+    checkCudaErrors(cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp)));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image_from_gpu(tmp[i], width, height, 0, IMTYPE_BINARY, "matches", i);
+        write_image_from_gpu(tmp[i], width, height, MATCHES_GHOST_SIZE, IMTYPE_BINARY, "matches", i);
 }
 
 void free_matches(int width)
 {
     u8 *tmp[NUM_SHIFTS];
-    cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp));
+    checkCudaErrors(cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp)));
     for (int i = 0; i < NUM_SHIFTS; i++)
         GHOST_FREE_GPU(u8, tmp[i], width, MATCHES_GHOST_SIZE);
 }
 
-void __global__ fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
+__global__ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -120,6 +120,87 @@ void __global__ fillup_matches(u8 *left_edges, u8 *right_edges, int width, int h
         matches[i][IGX(x, y, width, MATCHES_GHOST_SIZE)] =
             left_edges[IGX(x, y, width, 30)] == right_edges[IGX(x+i, y, width, 30)];
         // ^ the +i accomplishes the sliding process
+}
+
+
+
+// step 3
+
+// a WxH size array used to keep scores
+__device__ i32 *scores[NUM_SHIFTS];
+
+void allocate_scores(int width, int height)
+{
+    i32 *tmp[NUM_SHIFTS];
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        tmp[i] = ALLOCATE_GPU(i32, width * height);
+    checkCudaErrors(cudaMemcpyToSymbol(scores, tmp, sizeof(tmp)));
+}
+
+void write_scores(int width, int height)
+{
+    i32 *tmp[NUM_SHIFTS];
+    checkCudaErrors(cudaMemcpyFromSymbol(tmp, scores, sizeof(tmp)));
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        write_image_from_gpu(tmp[i], width, height, 0, IMTYPE_GRAY_INT, "score_edges", i);
+}
+
+void free_scores()
+{
+    i32 *tmp[NUM_SHIFTS];
+    checkCudaErrors(cudaMemcpyFromSymbol(tmp, scores, sizeof(tmp)));
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        checkCudaErrors(cudaFree(tmp[i]));
+}
+
+__device__ void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width, i32 *total)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int half = square_width / 2;
+    memset(total, 0, sizeof(total[0]) * width * height);
+    for (int sy = 0; sy < square_width; sy++) {
+        for (int sx = 0; sx < square_width; sx++) {
+            int cur = IDX(x, y, width);
+            int rel = IGX(x + sx - half,
+                          y + sy - half,
+                          width, MATCHES_GHOST_SIZE);
+            total[cur] += (i32) pixels[rel];
+        }
+    }
+}
+
+__global__ void fillup_scores(int width, int height, int square_width, i32 *sum)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        addup_pixels_in_square(matches[i], width, height, square_width, sum);
+        // record a score whenever there was a match-up
+        int index = IDX(x, y, width);
+        if (matches[i][IGX(x, y, width, MATCHES_GHOST_SIZE)] == 1)
+            scores[i][index] = sum[index];
+    }
+}
+
+__global__ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int width, int height)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    memset(best_scores,    0, sizeof(best_scores[0])    * width * height);
+    memset(winning_shifts, 0, sizeof(winning_shifts[0]) * width * height);
+    // the following loop makes sure that each pixel in the best_scores
+    // image contains the maximum score found at any shift.
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        int index = IDX(x, y, width);
+        if (scores[i][index] > best_scores[index])
+            best_scores[index] = scores[i][index];
+    }
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        int index = IDX(x, y, width);
+        if (scores[i][index] == best_scores[index])
+            winning_shifts[index] = i+1;
+    }
 }
 
 
@@ -139,7 +220,11 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
 
     u8 *first_edges  = ghost_alloc_gpu_u8(width, height, 30, 0),
        *second_edges = ghost_alloc_gpu_u8(width, height, 30, 0);
+    i32 *buf = ALLOCATE_GPU(i32, width * height),
+        *web = ALLOCATE_GPU(i32, width * height);
+    u8 *out = ALLOCATE_GPU(u8, width * height);
     allocate_matches(width, height);
+    allocate_scores(width, height);
 
     // first step: find edges in both images
     find_all_edges<<<num_blocks, block_dim>>>(first,  width, height, params.threshold, first_edges);
@@ -150,6 +235,13 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // second step: match edges between images
     fillup_matches<<<num_blocks, block_dim>>>(first_edges, second_edges, width, height);
     write_matches(width, height);
+
+    // third step: compute scores for each pixel
+    fillup_scores<<<num_blocks, block_dim>>>(width, height, params.square_width, buf);
+    write_scores(width, height);
+    find_highest_scoring_shifts<<<num_blocks, block_dim>>>(buf, web, width, height);
+    write_image_from_gpu(buf, width, height, 0, IMTYPE_GRAY_INT, "score_best", 0);
+    write_image_from_gpu(web, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
 
     GHOST_FREE_GPU(u8, first_edges,  width, 30);
     GHOST_FREE_GPU(u8, second_edges, width, 30);
