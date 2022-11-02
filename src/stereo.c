@@ -294,34 +294,42 @@ typedef struct AlgorithmParams {
 
 void algorithm(double *first, double *second, int width, int height, AlgorithmParams params)
 {
-    // first step: find edges in both images
     u8 *first_edges  = ghost_alloc_u8(width, height, 30, 0),
        *second_edges = ghost_alloc_u8(width, height, 30, 0);
+    i32 *buf = ALLOCATE(i32, width * height),
+        *web = ALLOCATE(i32, width * height);
+    u8 *out = ALLOCATE(u8, width * height);
+    allocate_matches(width, height);
+    allocate_scores(width, height);
+
+    // first step: find edges in both images
     find_all_edges(first,  width, height, params.threshold, first_edges);
     find_all_edges(second, width, height, params.threshold, second_edges);
     write_image(first_edges,  width, height, 30, IMTYPE_BINARY, "edges", 1);
     write_image(second_edges, width, height, 30, IMTYPE_BINARY, "edges", 2);
 
     // second step: match edges between images
-    allocate_matches(width, height);
     fillup_matches(first_edges, second_edges, width, height);
     write_matches(width, height);
 
-    // // third step: compute scores for each pixel
-    i32 *buf            = ALLOCATE(i32, width * height),
-        *winning_shifts = ALLOCATE(i32, width * height);
-    allocate_scores(width, height);
+    // third step: compute scores for each pixel
     fillup_scores(width, height, params.square_width, buf);
-    find_highest_scoring_shifts(buf, winning_shifts, width, height);
-    write_image(winning_shifts, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
+    find_highest_scoring_shifts(buf, web, width, height);
+    write_image(web, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
 
     // fourth step: draw contour lines
-    i32 *web = winning_shifts;
-    u8 *out = ALLOCATE(u8, width * height);
     web = fill_web_holes(web, width, height, params.times);
     write_image(web, width, height, 0, IMTYPE_GRAY_INT, "web", 2);
     draw_contour_map(web, width, height, params.lines_to_draw, out);
     write_image(out, width, height, 0, IMTYPE_BINARY, "output", 0);
+
+    GHOST_FREE(u8, first_edges,  width, 30);
+    GHOST_FREE(u8, second_edges, width, 30);
+    free(buf);
+    free(web);
+    free(out);
+    free_matches(width);
+    free_scores();
 }
 
 int main(int argc, char *argv[])
@@ -372,6 +380,8 @@ int main(int argc, char *argv[])
 
     algorithm(first_ghost, second_ghost, first.width, first.height, params);
 
+    GHOST_FREE(double, first_ghost,  first.width, 1);
+    GHOST_FREE(double, second_ghost, first.width, 1);
     free(first.data);
     free(second.data);
     return 0;
