@@ -13,9 +13,9 @@ static inline type *ghost_alloc_##type(int width, int height, int ghost_size, ty
     return &p[IDX(ghost_size, ghost_size, width + ghost_size * 2)];                             \
 }                                                                                               \
 
-void *real_pointer(void *p, int elem_size, int width, int ghost_size)
+static inline void *real_pointer(void *p, int elem_size, int width, int ghost_size)
 {
-    return (void *) ((u8 *) p) - IDX(ghost_size, ghost_size, width + ghost_size * 2) * elem_size;
+    return ((u8 *) p) - IDX(ghost_size, ghost_size, width + ghost_size * 2) * elem_size;
 }
 
 static inline void ghost_free(void *p, int elem_size, int width, int ghost_size)
