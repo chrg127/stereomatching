@@ -205,6 +205,59 @@ __global__ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shift
 
 
 
+// step 4
+
+__global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if (tmp[IDX(x, y, width)] == 0) {
+        web[IDX(x, y, width)] =
+            (tmp[IDX(x+1, y,   width)]
+           + tmp[IDX(x,   y+1, width)]
+           + tmp[IDX(x-1, y,   width)]
+           + tmp[IDX(x,   y-1, width)]) / 4;
+    }
+}
+
+i32 *fill_web_holes(i32 *web, int width, int height, int times)
+{
+    // each time though the loop, every pixel not on the web (i.e., every pixel that is not
+    // zero to begin with) takes on the average elevation of its four neighbors. therefore,
+    // the web pixels gradually "spread" their elevations across the holes, while they
+    // themselves remain unchanged.
+    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
+    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
+    i32 *tmp = ALLOCATE_GPU(i32, width * height);
+    checkCudaErrors(cudaMemcpy(tmp, web, sizeof(web[0]) * width * height, cudaMemcpyDeviceToDevice));
+    for (int i = 0; i < times; i++) {
+        fill_web_holes_step<<<num_blocks, BLOCK_DIM_2D>>>(web, tmp, width);
+        SWAP(web, tmp, i32 *);
+    }
+    cudaFree(tmp);
+    return web;
+}
+
+i32 image_max(i32 *im, int width, int height) { return array_max_gpu(im, width*height); }
+i32 image_min(i32 *im, int width, int height) { return array_min_gpu(im, width*height); }
+
+__global__ void draw_contour_map(i32 *web, int width, int height, int num_lines,
+                                 i32 max_elevation, i32 min_elevation, u8 *image_output)
+{
+    // the idea is to divide the whole range of elevations into a number of intervals,
+    // then to draw a contour line at every interval.
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int i = IDX(x, y, width);
+    i32 range    = max_elevation - min_elevation,
+        interval = range / num_lines;
+    // now the variable 'interval' tells us how many elevations, or shifts, to skip between
+    // contour lines.
+    image_output[i] = ((web[i] - min_elevation) % interval) == 0;
+}
+
+
+
 typedef struct AlgorithmParams {
     double threshold;
     int square_width;
@@ -214,9 +267,8 @@ typedef struct AlgorithmParams {
 
 void algorithm(double *first, double *second, int width, int height, AlgorithmParams params)
 {
-    const int num_blocks_side = ceil_div(width, BLOCK_DIM_2D);
+    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
     const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
-    const dim3 block_dim  = dim3(BLOCK_DIM_2D, BLOCK_DIM_2D);
 
     u8 *first_edges  = ghost_alloc_gpu_u8(width, height, 30, 0),
        *second_edges = ghost_alloc_gpu_u8(width, height, 30, 0);
@@ -227,21 +279,28 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     allocate_scores(width, height);
 
     // first step: find edges in both images
-    find_all_edges<<<num_blocks, block_dim>>>(first,  width, height, params.threshold, first_edges);
-    find_all_edges<<<num_blocks, block_dim>>>(second, width, height, params.threshold, second_edges);
+    find_all_edges<<<num_blocks, BLOCK_DIM_2D>>>(first,  width, height, params.threshold, first_edges);
+    find_all_edges<<<num_blocks, BLOCK_DIM_2D>>>(second, width, height, params.threshold, second_edges);
     write_image_from_gpu(first_edges,  width, height, 30, IMTYPE_BINARY, "edges", 1);
     write_image_from_gpu(second_edges, width, height, 30, IMTYPE_BINARY, "edges", 2);
 
     // second step: match edges between images
-    fillup_matches<<<num_blocks, block_dim>>>(first_edges, second_edges, width, height);
+    fillup_matches<<<num_blocks, BLOCK_DIM_2D>>>(first_edges, second_edges, width, height);
     write_matches(width, height);
 
     // third step: compute scores for each pixel
-    fillup_scores<<<num_blocks, block_dim>>>(width, height, params.square_width, buf);
+    fillup_scores<<<num_blocks, BLOCK_DIM_2D>>>(width, height, params.square_width, buf);
     write_scores(width, height);
-    find_highest_scoring_shifts<<<num_blocks, block_dim>>>(buf, web, width, height);
+    find_highest_scoring_shifts<<<num_blocks, BLOCK_DIM_2D>>>(buf, web, width, height);
     write_image_from_gpu(buf, width, height, 0, IMTYPE_GRAY_INT, "score_best", 0);
     write_image_from_gpu(web, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
+
+    // fourth step: draw contour lines
+    web = fill_web_holes(web, width, height, params.times);
+    write_image_from_gpu(web, width, height, 0, IMTYPE_GRAY_INT, "web", 2);
+    i32 immax = image_max(web, width, height);
+    i32 immin = image_min(web, width, height);
+    draw_contour_map<<<num_blocks, BLOCK_DIM_2D>>>(web, width, height, params.lines_to_draw, immax, immin, out);
 
     GHOST_FREE_GPU(u8, first_edges,  width, 30);
     GHOST_FREE_GPU(u8, second_edges, width, 30);

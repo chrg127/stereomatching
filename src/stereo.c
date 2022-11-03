@@ -252,21 +252,8 @@ i32 *fill_web_holes(i32 *web, int width, int height, int times)
     return web;
 }
 
-i32 image_max(i32 *im, int width, int height)
-{
-    i32 max = 0;
-    for (int i = 0; i < width*height; i++)
-        max = MAX(im[i], max);
-    return max;
-}
-
-i32 image_min(i32 *im, int width, int height)
-{
-    i32 min = 0;
-    for (int i = 0; i < width*height; i++)
-        min = MIN(im[i], min);
-    return min;
-}
+i32 image_max(i32 *im, int width, int height) { return array_max(im, width*height); }
+i32 image_min(i32 *im, int width, int height) { return array_min(im, width*height); }
 
 void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_output)
 {
