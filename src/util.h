@@ -17,6 +17,7 @@ typedef uint32_t u32;
 typedef int8_t   i8;
 typedef int32_t  i32;
 
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 #define IDX(x, y, w) ((y)*(w)+(x))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -78,12 +79,35 @@ static inline int ceil_div(int x, int y)
     return (x + y - 1) / y;
 }
 
+#ifdef __NVCC__
+__host__ __device__
+#endif
+static inline i32 array_max(i32 *a, size_t s)
+{
+    i32 m = 0;
+    for (size_t i = 0; i < s; i++)
+        m = MAX(a[i], m);
+    return m;
+}
+
+#ifdef __NVCC__
+__host__ __device__
+#endif
+static inline i32 array_min(i32 *a, size_t s)
+{
+    i32 m = 0;
+    for (size_t i = 0; i < s; i++)
+        m = MIN(a[i], m);
+    return m;
+}
+
 // CUDA specific helper functions
 
 #ifdef __NVCC__
 
 #define BLOCK_DIM 1024
-#define BLOCK_DIM_2D 32
+#define BLOCK_DIM_SIDE 32
+#define BLOCK_DIM_2D dim3(BLOCK_DIM_SIDE, BLOCK_DIM_SIDE)
 
 static inline void *cuda_xmalloc(size_t size)
 {
@@ -123,6 +147,9 @@ static inline void *make_host_copy(void *dp, size_t size)
 __global__ void fill_array_double(double *arr, size_t size, double value);
 __global__ void fill_array_i32(i32 *arr, size_t size, i32 value);
 __global__ void fill_array_u8(u8 *arr, size_t size, u8 value);
+
+i32 array_max_gpu(i32 *arr, size_t n);
+i32 array_min_gpu(i32 *arr, size_t n);
 
 #endif // __NVCC__
 
