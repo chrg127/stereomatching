@@ -137,7 +137,7 @@ void allocate_scores(int width, int height)
 void write_scores(int width, int height)
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(scores[i], width, height, 0, IMTYPE_GRAY_INT, "score_edges", i);
+        write_image(scores[i], width, height, 0, IMTYPE_GRAY_INT, "scores", i);
 }
 
 void free_scores()
@@ -179,7 +179,7 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
 {
     for (int i = 0; i < NUM_SHIFTS; i++) {
         addup_pixels_in_square(matches[i], width, height, square_width, sum);
-        write_image(sum, width, height, 0, IMTYPE_GRAY_INT, "score_all", i);
+        //write_image(sum, width, height, 0, IMTYPE_GRAY_INT, "score_all", i);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int index = IDX(x, y, width);
@@ -188,7 +188,6 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
                     scores[i][index] = sum[index];
             }
         }
-        write_image(scores[i], width, height, 0, IMTYPE_GRAY_INT, "score_edges", i);
     }
 }
 

@@ -142,7 +142,7 @@ void write_scores(int width, int height)
     i32 *tmp[NUM_SHIFTS];
     checkCudaErrors(cudaMemcpyFromSymbol(tmp, scores, sizeof(tmp)));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image_from_gpu(tmp[i], width, height, 0, IMTYPE_GRAY_INT, "score_edges", i);
+        write_image_from_gpu(tmp[i], width, height, 0, IMTYPE_GRAY_INT, "scores", i);
 }
 
 void free_scores()
@@ -301,6 +301,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     i32 immax = image_max(web, width, height);
     i32 immin = image_min(web, width, height);
     draw_contour_map<<<num_blocks, BLOCK_DIM_2D>>>(web, width, height, params.lines_to_draw, immax, immin, out);
+    write_image_from_gpu(out, width, height, 0, IMTYPE_BINARY, "output", 0);
 
     GHOST_FREE_GPU(u8, first_edges,  width, 30);
     GHOST_FREE_GPU(u8, second_edges, width, 30);
