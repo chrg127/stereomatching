@@ -159,7 +159,6 @@ void free_scores()
 void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width, i32 *total)
 {
     int half = square_width / 2;
-    memset(total, 0, sizeof(total[0]) * width * height);
     for (int sy = 0; sy < square_width; sy++) {
         for (int sx = 0; sx < square_width; sx++) {
             for (int y = 0; y < height; y++) {
@@ -178,8 +177,9 @@ void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width,
 void fillup_scores(int width, int height, int square_width, i32 *sum)
 {
     for (int i = 0; i < NUM_SHIFTS; i++) {
+        memset(sum, 0, sizeof(sum[0]) * width * height);
         addup_pixels_in_square(matches[i], width, height, square_width, sum);
-        //write_image(sum, width, height, 0, IMTYPE_GRAY_INT, "score_all", i);
+        write_image(sum, width, height, 0, IMTYPE_GRAY_INT, "score_all", i);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int index = IDX(x, y, width);
@@ -195,8 +195,6 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
 // the shift at each pixel corresponds directly to the elevation.
 void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int width, int height)
 {
-    memset(best_scores,    0, sizeof(best_scores[0])    * width * height);
-    memset(winning_shifts, 0, sizeof(winning_shifts[0]) * width * height);
     // the following loop makes sure that each pixel in the best_scores
     // image contains the maximum score found at any shift.
     for (int i = 0; i < NUM_SHIFTS; i++) {
@@ -254,14 +252,13 @@ i32 *fill_web_holes(i32 *web, int width, int height, int times)
 i32 image_max(i32 *im, int width, int height) { return array_max(im, width*height); }
 i32 image_min(i32 *im, int width, int height) { return array_min(im, width*height); }
 
-void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_output)
+void draw_contour_map(i32 *web, int width, int height, int num_lines,
+                      i32 max_elevation, i32 min_elevation, u8 *image_output)
 {
     // the idea is to divide the whole range of elevations into a number of intervals,
     // then to draw a contour line at every interval.
-    i32 max_elevation = image_max(web, width, height),
-        min_elevation = image_min(web, width, height),
-        range         = max_elevation - min_elevation,
-        interval      = range / num_lines;
+    i32 range    = max_elevation - min_elevation,
+        interval = range / num_lines;
     // now the variable 'interval' tells us how many elevations, or shifts, to skip between
     // contour lines.
     for (int y = 0; y < height; y++) {
@@ -306,6 +303,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // third step: compute scores for each pixel
     fillup_scores(width, height, params.square_width, buf);
     write_scores(width, height);
+    memset(buf, 0, sizeof(buf[0]) * width * height);
     find_highest_scoring_shifts(buf, web, width, height);
     write_image(buf, width, height, 0, IMTYPE_GRAY_INT, "score_best", 0);
     write_image(web, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
@@ -313,7 +311,10 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // fourth step: draw contour lines
     web = fill_web_holes(web, width, height, params.times);
     write_image(web, width, height, 0, IMTYPE_GRAY_INT, "web", 2);
-    draw_contour_map(web, width, height, params.lines_to_draw, out);
+    i32 immax = image_max(web, width, height),
+        immin = image_min(web, width, height);
+    printf("immax = %d, immin = %d\n", immax, immin);
+    draw_contour_map(web, width, height, params.lines_to_draw, immax, immin, out);
     write_image(out, width, height, 0, IMTYPE_BINARY, "output", 0);
 
     GHOST_FREE(u8, first_edges,  width, 30);

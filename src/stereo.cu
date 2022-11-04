@@ -153,15 +153,15 @@ void free_scores()
         checkCudaErrors(cudaFree(tmp[i]));
 }
 
-__device__ void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width, i32 *total)
+__global__ void addup_pixels_in_square(int i, int width, int height, int square_width, i32 *total)
 {
+    u8 *pixels = matches[i];
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int cur = IDX(x, y, width);
     int half = square_width / 2;
-    memset(total, 0, sizeof(total[0]) * width * height);
     for (int sy = 0; sy < square_width; sy++) {
         for (int sx = 0; sx < square_width; sx++) {
-            int cur = IDX(x, y, width);
             int rel = IGX(x + sx - half,
                           y + sy - half,
                           width, MATCHES_GHOST_SIZE);
@@ -170,6 +170,29 @@ __device__ void addup_pixels_in_square(u8 *pixels, int width, int height, int sq
     }
 }
 
+__global__ void record_score(int i, i32 *sum, int width, int height)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int index = IDX(x, y, width);
+    // record a score whenever there was a match-up
+    if (matches[i][IGX(x, y, width, MATCHES_GHOST_SIZE)] == 1)
+        scores[i][index] = sum[index];
+}
+
+void fillup_scores(int width, int height, int square_width, i32 *sum)
+{
+    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
+    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        cudaMemset(sum, 0, sizeof(sum[0]) * width * height);
+        addup_pixels_in_square<<<num_blocks, BLOCK_DIM_2D>>>(i, width, height, square_width, sum);
+        write_image_from_gpu(sum, width, height, 0, IMTYPE_GRAY_INT, "score_all", i);
+        record_score<<<num_blocks, BLOCK_DIM_2D>>>(i, sum, width, height);
+    }
+}
+
+/*
 __global__ void fillup_scores(int width, int height, int square_width, i32 *sum)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -182,13 +205,12 @@ __global__ void fillup_scores(int width, int height, int square_width, i32 *sum)
             scores[i][index] = sum[index];
     }
 }
+*/
 
 __global__ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int width, int height)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
-    memset(best_scores,    0, sizeof(best_scores[0])    * width * height);
-    memset(winning_shifts, 0, sizeof(winning_shifts[0]) * width * height);
     // the following loop makes sure that each pixel in the best_scores
     // image contains the maximum score found at any shift.
     for (int i = 0; i < NUM_SHIFTS; i++) {
@@ -196,6 +218,7 @@ __global__ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shift
         if (scores[i][index] > best_scores[index])
             best_scores[index] = scores[i][index];
     }
+    __syncthreads();
     for (int i = 0; i < NUM_SHIFTS; i++) {
         int index = IDX(x, y, width);
         if (scores[i][index] == best_scores[index])
@@ -289,8 +312,9 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     write_matches(width, height);
 
     // third step: compute scores for each pixel
-    fillup_scores<<<num_blocks, BLOCK_DIM_2D>>>(width, height, params.square_width, buf);
+    fillup_scores(width, height, params.square_width, buf);
     write_scores(width, height);
+    cudaMemset(buf, 0, sizeof(buf[0]) * width * height);
     find_highest_scoring_shifts<<<num_blocks, BLOCK_DIM_2D>>>(buf, web, width, height);
     write_image_from_gpu(buf, width, height, 0, IMTYPE_GRAY_INT, "score_best", 0);
     write_image_from_gpu(web, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
@@ -298,8 +322,9 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // fourth step: draw contour lines
     web = fill_web_holes(web, width, height, params.times);
     write_image_from_gpu(web, width, height, 0, IMTYPE_GRAY_INT, "web", 2);
-    i32 immax = image_max(web, width, height);
-    i32 immin = image_min(web, width, height);
+    i32 immax = image_max(web, width, height),
+        immin = image_min(web, width, height);
+    printf("immax = %d, immin = %d\n", immax, immin);
     draw_contour_map<<<num_blocks, BLOCK_DIM_2D>>>(web, width, height, params.lines_to_draw, immax, immin, out);
     write_image_from_gpu(out, width, height, 0, IMTYPE_BINARY, "output", 0);
 

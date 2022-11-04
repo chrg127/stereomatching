@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <limits.h>
 #include <assert.h>
 #ifdef __NVCC__
 #include "helper_cuda.h"
@@ -84,7 +85,7 @@ __host__ __device__
 #endif
 static inline i32 array_max(i32 *a, size_t s)
 {
-    i32 m = 0;
+    i32 m = INT_MIN;
     for (size_t i = 0; i < s; i++)
         m = MAX(a[i], m);
     return m;
@@ -95,7 +96,7 @@ __host__ __device__
 #endif
 static inline i32 array_min(i32 *a, size_t s)
 {
-    i32 m = 0;
+    i32 m = INT_MAX;
     for (size_t i = 0; i < s; i++)
         m = MIN(a[i], m);
     return m;
