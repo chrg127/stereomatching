@@ -8,3 +8,10 @@ a.png
 b.png
 out
 *.swp
+*.aux
+*.lof
+*.log
+*.lot
+*.out
+*.pdf
+*.toc
