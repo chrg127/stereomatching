@@ -1,23 +1,10 @@
-% 12pt: grandezza carattere
-% a4paper: formato a4
-% openright: apre i capitoli a destra
-% twoside: serve per fare un documento fronteretro
-% report: stile tesi (oppure book)
 \documentclass[12pt,a4paper,openright,twoside]{report}
 
-%libreria per scrivere in italiano
 \usepackage[italian]{babel}
-
-% libreria per accettare i caratteri digitati da tastiera come è à
-% si può usare anche
-%\usepackage[T1]{fontenc}
-% però con questa libreria il tempo di compilazione aumenta
 \usepackage[utf8]{inputenc}
-
-% libreria per impostare il documento
 \usepackage{fancyhdr}
 
-% libreria per avere l'indentazione all'inizio dei capitoli, ...
+% libreria per avere l'indentazione all'inizio dei capitoli
 \usepackage{indentfirst}
 
 % libreria per mostrare le etichette
@@ -26,8 +13,7 @@
 % libreria per inserire grafici
 \usepackage{graphicx}
 
-% libreria per utilizzare font particolari, ad esempio
-%\textsc{}
+% libreria per utilizzare font particolari, ad esempio \textsc{}
 \usepackage{newlfont}
 
 % librerie matematiche
@@ -49,7 +35,6 @@
     breaklines=true
 }
 
-% impostano i margini
 \oddsidemargin=30pt
 \evensidemargin=20pt
 
@@ -57,21 +42,20 @@
 % parole che latex non riesce a tagliare nel modo giusto andando a capo.
 \hyphenation{sil-la-ba-zio-ne pa-ren-te-si}
 
-% comandi per l'impostazione della pagina, vedi il manuale della libreria fancyhdr
-% per ulteriori delucidazioni
-\pagestyle{fancy}\addtolength{\headwidth}{20pt}
+% comandi per l'impostazione della pagina
+\pagestyle{fancy}
+\addtolength{\headwidth}{20pt}
 \renewcommand{\chaptermark}[1]{\markboth{\thechapter.\ #1}{}}
 \renewcommand{\sectionmark}[1]{\markright{\thesection \ #1}{}}
 \rhead[\fancyplain{}{\bfseries\leftmark}]{\fancyplain{}{\bfseries\thepage}}
 \cfoot{}
 
 % comando per impostare l'interlinea
-%definisce nuovi comandi
 \linespread{1.3}
 
-% comandi custom
-\newcommand{\xstudent}{Nome dello studente}
-\newcommand{\xsupervisor}{Nome del relatore}
+\newcommand{\xstudent}{Christian Ricci}
+\newcommand{\xsupervisor}{Moreno Marzolla}
+
 
 
 
@@ -82,126 +66,105 @@
 %\setlength{\textheight}{19cm}
 %\setlength{\footskip}{3cm}
 
-% inizio prefazione
+% %%% inizio prefazione %%%
 
 %\textwidth=450pt
 \oddsidemargin=25pt
 
 \begin{titlepage}
 \begin{center}
-{{\Large{\textsc{Alma Mater Studiorum}}}\\
-{\Large{\textsc{Universit\`a di Bologna}}} \\
-{\textsc{Campus di Cesena}} \rule[0.1cm]{14cm}{0.1mm}
-		\rule[0.5cm]{14cm}{0.6mm}
-DIPARTIMENTO DI INFORMATICA – SCIENZA E INGEGNERIA
-\color{red}Corso di Laurea Magistrale in Ingegneria e Scienze Informatiche }
+    {\Large{\textsc{Alma Mater Studiorum}}}\\
+    {\Large{\textsc{Universit\`a di Bologna}}} \\
+    {\textsc{Campus di Cesena}}
+    % thin and big line
+    \rule[0.1cm]{14cm}{0.1mm}
+    \rule[0.5cm]{14cm}{0.6mm}
+    DIPARTIMENTO DI INFORMATICA – SCIENZA E INGEGNERIA
+    Corso di Laurea Magistrale in Ingegneria e Scienze Informatiche
 \end{center}
+
 \vspace{15mm}
+
 \begin{center}
-\color{red}{\LARGE{\bf TITOLO}}\\
-\vspace{3mm}
-{\LARGE{\bf DELLA}}\\
-\vspace{3mm}
-{\LARGE{\bf TESI}}\\
+    {\LARGE{\bf TITOLO}} \vspace{3mm} \\
+    {\LARGE{\bf DELLA}} \vspace{3mm} \\
+    {\LARGE{\bf TESI}}
 \end{center}
+
 \vspace{15mm}
+
 \begin{center}
- {\large{ Elaborato in:\\
-\color{red}........\\}}
+     \large{ Elaborato in:\\ ........\\}
 \end{center}
+
 \vspace{20mm}
 \par
 \noindent
+
 \begin{minipage}[t]{0.47\textwidth}
-{\large{\bf Relatore:\\
-\color{red}Prof.\\
-\xsupervisor}}
+    {\large{\bf Relatore:\\ Prof.\\ \xsupervisor}}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.47\textwidth}\raggedleft
-{\large{\bf Presentata da:\\
-\color{red}\xstudent}}
-\end{minipage}
+    {\large{\bf Presentata da:\\ \xstudent}} \end{minipage}
 \vspace{20mm}
+% TODO anno e sessione
 \begin{center}
-\color{red}{\large{\bf Sessione I\\%inserire il numero della sessione in cui ci si laurea
-Anno Accademico 2015-2016}}%inserire l'anno accademico a cui si è iscritti
+    \large{\bf Sessione I\\ Anno Accademico 2015-2016}
 \end{center}
 \end{titlepage}
 
-
-% pagina del titolo
 \clearpage{\pagestyle{empty}\cleardoublepage}
 
-% crea un ambiente libero da vincoli di margini e grandezza caratteri: si può
-% modificare quello che si vuole, tanto fuori da questo ambiente tutto viene ristabilito
-\begin{titlepage}
-
-% elimina il numero della pagina
-\thispagestyle{empty}
-
-% imposta il margina superiore a 6.5cm
-\topmargin=6.5cm
-
-%incolonna la scrittura a destra
-\raggedleft
-
-%aumenta la grandezza del carattere a 14pt
-\large
-
-% emfatizza (corsivo) il carattere
-\em
-Questa \`e la \textsc{Dedica}:\\
-ognuno pu\`o scrivere quello che vuole, \\
-anche nulla \ldots
-% \ldots lascia tre puntini
 \newpage
 
+% %%% pagina della dedica %%%
+\begin{titlepage}
+\thispagestyle{empty}
+\topmargin=6.5cm
+\raggedleft
+\large
+\em
+(Dedica)
 \clearpage{\pagestyle{empty}\cleardoublepage}
 \end{titlepage}
 
-
-
-% indice, sommario
+% %%% introduzione %%%
 \pagenumbering{roman}
 \chapter*{Introduzione}
 
 % imposta l'intestazione di pagina
-\rhead[\fancyplain{}{\bfseries
-INTRODUZIONE}]{\fancyplain{}{\bfseries\thepage}}
-\lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries
-INTRODUZIONE}}
+\rhead[\fancyplain{}{\bfseries INTRODUZIONE}]{\fancyplain{}{\bfseries\thepage}}
+\lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries INTRODUZIONE}}
 
-%aggiunge la voce Introduzione nell'indice
+% aggiunge la voce Introduzione nell'indice
 \addcontentsline{toc}{chapter}{Introduzione}
 Questa \`e l'introduzione.
 
 
 
-%crea l'indice
+% %%% indice %%%
+
 \tableofcontents
 
-% imposta l'intestazione di pagina
 \rhead[\fancyplain{}{\bfseries\leftmark}]{\fancyplain{}{\bfseries\thepage}}
 \lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries INDICE}}
-% non numera l'ultima pagina sinistra
+
 \clearpage{\pagestyle{empty}\cleardoublepage}
 
-% crea l'elenco delle figure
 \listoffigures
 \clearpage{\pagestyle{empty}\cleardoublepage}
 
-% crea l'elenco delle tabelle
 \listoftables
 \clearpage{\pagestyle{empty}\cleardoublepage}
 
 
 
-% inizio corpo del documento
+% %%% primo capitolo %%%
 
 \clearpage{\pagestyle{empty}\cleardoublepage}
 \chapter{Primo Capitolo}
-% imposta l'intestazione di pagina
+
 \lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries\rightmark}}
 \pagenumbering{arabic}
 Questo \`e il primo capitolo di una tesi scritta in Latex ~\cite{latex}
@@ -311,30 +274,7 @@ CONCLUSIONI}]{\fancyplain{}{\bfseries\thepage}}
 \lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries
 CONCLUSIONI}}
 
-% aggiunge la voce Conclusioni nell'indice
-\addcontentsline{toc}{chapter}{Conclusioni} Queste sono le
-conclusioni.\\
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque a magna quis nunc venenatis vestibulum. Curabitur commodo efficitur ipsum, non ullamcorper tellus. Duis dictum commodo nisi nec venenatis. Donec euismod pulvinar finibus. Suspendisse lorem mi, suscipit quis faucibus ut, luctus in justo. Cras pulvinar arcu ut ullamcorper pulvinar. Aliquam dictum tortor quis diam luctus, quis tristique tortor ultrices. Integer et lacus a velit efficitur convallis. Morbi enim erat, fermentum vel nulla id, viverra vehicula nisi. Integer non auctor leo, eu convallis massa. Cras eu cursus ligula. Nunc non purus et sem vehicula viverra ut nec nibh.
-
-Quisque posuere purus quis eros auctor efficitur. Etiam mattis vitae nulla et blandit. Nulla a orci magna. Cras ac elit enim. Vestibulum nec nisl metus. Mauris congue velit nec malesuada scelerisque. Sed dignissim, enim vitae semper fermentum, mauris leo vestibulum nisl, in malesuada nibh felis nec dui.
-
-Nullam sit amet tellus eget mi varius commodo. Vestibulum sit amet egestas odio. Nam in ullamcorper quam, nec efficitur augue. Curabitur eget elit in leo eleifend tempor vel lobortis lorem. Duis neque dui, tempus eu sollicitudin ac, lobortis sit amet odio. Morbi eleifend, tellus a varius consequat, enim erat sagittis justo, ac rutrum ipsum augue in leo. Suspendisse non mi ante.
-
-Praesent sed pretium dui, id volutpat tortor. Suspendisse tortor lorem, vestibulum vitae ullamcorper vitae, tincidunt nec leo. Proin interdum congue blandit. Ut bibendum sagittis leo, nec venenatis urna mollis id. Donec nec erat non justo maximus venenatis. In mollis elit eu odio maximus porta. Vestibulum varius turpis sit amet orci blandit, vitae volutpat erat viverra.
-
-Suspendisse nunc urna, elementum ut purus a, sagittis porta velit. Integer ultricies convallis tortor id pellentesque. Duis et sem a mi bibendum congue. Morbi ut tellus cursus, laoreet ipsum rutrum, condimentum felis. Proin velit mi, ultricies a urna nec, facilisis pretium mi. Pellentesque tristique interdum purus, a facilisis mi tempor quis. Sed finibus venenatis ligula porttitor porttitor. Suspendisse cursus lorem nec velit commodo fringilla.
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque a magna quis nunc venenatis vestibulum. Curabitur commodo efficitur ipsum, non ullamcorper tellus. Duis dictum commodo nisi nec venenatis. Donec euismod pulvinar finibus. Suspendisse lorem mi, suscipit quis faucibus ut, luctus in justo. Cras pulvinar arcu ut ullamcorper pulvinar. Aliquam dictum tortor quis diam luctus, quis tristique tortor ultrices. Integer et lacus a velit efficitur convallis. Morbi enim erat, fermentum vel nulla id, viverra vehicula nisi. Integer non auctor leo, eu convallis massa. Cras eu cursus ligula. Nunc non purus et sem vehicula viverra ut nec nibh.
-
-Quisque posuere purus quis eros auctor efficitur. Etiam mattis vitae nulla et blandit. Nulla a orci magna. Cras ac elit enim. Vestibulum nec nisl metus. Mauris congue velit nec malesuada scelerisque. Sed dignissim, enim vitae semper fermentum, mauris leo vestibulum nisl, in malesuada nibh felis nec dui.
-
-Nullam sit amet tellus eget mi varius commodo. Vestibulum sit amet egestas odio. Nam in ullamcorper quam, nec efficitur augue. Curabitur eget elit in leo eleifend tempor vel lobortis lorem. Duis neque dui, tempus eu sollicitudin ac, lobortis sit amet odio. Morbi eleifend, tellus a varius consequat, enim erat sagittis justo, ac rutrum ipsum augue in leo. Suspendisse non mi ante.
-
-Praesent sed pretium dui, id volutpat tortor. Suspendisse tortor lorem, vestibulum vitae ullamcorper vitae, tincidunt nec leo. Proin interdum congue blandit. Ut bibendum sagittis leo, nec venenatis urna mollis id. Donec nec erat non justo maximus venenatis. In mollis elit eu odio maximus porta. Vestibulum varius turpis sit amet orci blandit, vitae volutpat erat viverra.
-
-Suspendisse nunc urna, elementum ut purus a, sagittis porta velit. Integer ultricies convallis tortor id pellentesque. Duis et sem a mi bibendum congue. Morbi ut tellus cursus, laoreet ipsum rutrum, condimentum felis. Proin velit mi, ultricies a urna nec, facilisis pretium mi. Pellentesque tristique interdum purus, a facilisis mi tempor quis. Sed finibus venenatis ligula porttitor porttitor. Suspendisse cursus lorem nec velit commodo fringilla.
-
-
+\addcontentsline{toc}{chapter}{Conclusioni} Queste sono le conclusioni.\\
 
 % bibliografia
 \clearpage{\pagestyle{empty}\cleardoublepage}
