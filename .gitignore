@@ -15,3 +15,7 @@ out
 *.out
 *.pdf
 *.toc
+*.bbl
+*.blg
+*.dvi
+*.synctex.gz
