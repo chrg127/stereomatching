@@ -162,14 +162,26 @@ Questa relazione tratta anche l'implementazione dell'algoritmo in \textbf{CUDA},
 
 
 \clearpage{\pagestyle{empty}\cleardoublepage}
-\chapter{Capitolo 1: Programmazione Parallela}
+\clearpage{\pagestyle{empty}\cleardoublepage}
+\chapter{Programmazione Parallela}
 
 \lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries\rightmark}}
 \pagenumbering{arabic}
 
-Primo capitolo
+La programmazione parallela è un paradigma di programmazione che sfrutta l'esecuzione parallela di processori per ottenere prestazioni migliori e risultati nel minor tempo possibile. I calcoli vengono eseguiti in parallelo, ovvero vengono eseguiti simultaneamente su più processi. Questo paradigma si colloca all'interno dell'High Performance Computing (HPC), una materia che studia le tecniche e soluzioni hardware che facilitano l'esecuzione parallela dei calcoli.
 
 
+
+\section{Evoluzione dei Processi}
+
+Perchè mai si dovrebbe ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Questa domanda trova risposta nello studio dell'evoluzione dei processori: per anni si è tenuto conto della cosiddetta ``Legge di Moore'', che ipotizza che ``il numero di transistor contenuti all'interno di un chip raddoppia ogni due anni''. Questa legge fu enunciata da Gordon E. Moore nel 1965 e spiega che effettivamente le prestazioni di un chip si duplicavano ogni due anni. La sua osservazione si rivelò corretta per due decenni, ma intorno agli anni 2000 questo andamento iniziò a calare. I motivi principali di questo calo sono:
+
+\begin{enumerate}
+    \item La dimensione dei transistor. Il miglior modo per aumentare il numero di transistor è di renderli sempre più piccoli, ma esiste un limite fisico della grandezza minima. I transistor di oggi vanno dai 20 nm all'1 nm;
+    \item Il calore dissipato dal processore. Un processore più veloce corrisponde ad una più grande quantità di calore dissipato, che porta a problemi di instabilità nel processore.
+\end{enumerate}
+
+Al posto di aumentare il numero di transistor, negli ultimi decenni sono state ideate nuove architetture che sfruttano il parallelismo: queste sono le architetture parallele, anche chiamate multicore o multiprocessore.
 
 \chapter{Stereo Vision}
 
