@@ -1,0 +1,3 @@
+https://en.wikipedia.org/wiki/Computer_stereo_vision
+https://en.wikipedia.org/wiki/Moore%27s_law
+https://github.com/karlrupp/microprocessor-trend-data

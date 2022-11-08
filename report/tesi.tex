@@ -200,9 +200,32 @@ Al posto di aumentare il numero di transistor, negli ultimi due decenni sono sta
 \label{img:trend_proc}
 \end{figure}
 
-Nella figura viene mostrata l'evoluzione dei processori nel corso degli ultimi decenni. In particolare si può notare come la frequenza media dei processori si sia stabilizzata, mentre pià o meno dalla metà degli anni 2000 sia cresciuto il numero di core logici, a seguito di ricerche sullo sviluppo delle architetture parallele.
+Nella figura \ref{img:trend_proc} viene mostrata l'evoluzione dei processori nel corso degli ultimi decenni. In particolare, si può notare come la frequenza media dei processori si sia stabilizzata, mentre più o meno dalla metà degli anni 2000 sia cresciuto il numero di core logici, a seguito di ricerche sullo sviluppo delle architetture parallele.
 
 \section{GPU e CUDA}
+
+Esistono diverse tipologie di architetture parallele; in questa relazione ci interesseremo delle architetture basate su GPU. Queste architetture vengono chiamate GPGPU (General Purpose Graphics Processing Units), ovvero schede grafiche programmabili in maniera generica.
+
+\begin{figure}[h]
+\centering{}
+\includegraphics[width=\textwidth]{cpu-gpu-comparison.png}
+\caption{Confronto tra l'architettura di una CPU e quella di una GPU. Da notare l'elevato numero di core della GPU.}
+\label{img:trend_proc}
+\end{figure}
+
+Il nome di queste architetture potrebbe dare confusione dato che, in generale, la funzione di una scheda video è strettamente legata alla grafica. Il motivo per cui sono interessanti è per la presenza di un grande numero di core all'interno della scheda, molto più grande del numero di core presenti in una normale CPU (si tratta di due ordini di grandezza di differenza); questo implica che possono essere molto utili per programmi paralleli con dati di grandi dimensioni. Le prime ricerche a riguardo furono svolte nel 2001 e nel 2003; diventarono più popolari nel 2007 con l'avvento di CUDA.
+
+CUDA (Compute Unified Device Architecture) è una piattaforma per il calcolo parallelo sviluppata da NVIDIA. Si tratta di una piattaforma che consente l'utilizzo delle schede grafiche NVIDIA per eseguire programmi paralleli, sfruttando appieno le loro potenzialità. La prima versione di CUDA è stata pubblicata nel 2007.
+
+I concetti di base di CUDA sono molto semplici: CUDA prevede una separazione tra l'\textit{host}, che corrisponde la CPU, e il \textit{device}, che corrisponde ad una o più schede grafiche. Queste sono considerate unità indipendenti, che cooperano in modo asincrono: in particolare, l'\textit{host} ha la possibilità di invocare funzioni specifiche che vengono eseguite sul \textit{device}. Queste funzioni vengono dette \textit{kernel}; appena vengono chiamate, queste vengono eseguite asincronicamente e restituiscono il controllo all'\textit{host}.
+
+\subsection{Architettura di CUDA}
+
+In CUDA, l'unità minima di elaborazione è il \textbf{thread}. CUDA raggruppa logicamente i thread in più \textbf{blocchi}, e a loro volta i blocchi sono raggruppati in \textbf{griglie}.
+
+%(figura)
+
+
 
 \chapter{Stereo Vision}
 
