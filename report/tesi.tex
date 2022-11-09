@@ -3,6 +3,7 @@
 \usepackage[italian]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{fancyhdr}
+\usepackage{float}
 
 % libreria per avere l'indentazione all'inizio dei capitoli
 \usepackage{indentfirst}
@@ -17,8 +18,7 @@
 \usepackage{newlfont}
 
 % librerie matematiche
-\usepackage{amssymb}
-\usepackage{amsmath}
+\usepackage{amssymb} \usepackage{amsmath}
 \usepackage{latexsym}
 \usepackage{amsthm}
 \usepackage{cite}
@@ -209,23 +209,79 @@ Esistono diverse tipologie di architetture parallele; in questa relazione ci int
 \begin{figure}[h]
 \centering{}
 \includegraphics[width=\textwidth]{cpu-gpu-comparison.png}
-\caption{Confronto tra l'architettura di una CPU e quella di una GPU. Da notare l'elevato numero di core della GPU.}
-\label{img:trend_proc}
+\caption[Confronto tra CPU e GPU]{Confronto tra l'architettura di una CPU e quella di una GPU. Da notare l'elevato numero di core della GPU.}
+\label{img:cpu-gpu-comparison}
 \end{figure}
 
 Il nome di queste architetture potrebbe dare confusione dato che, in generale, la funzione di una scheda video è strettamente legata alla grafica. Il motivo per cui sono interessanti è per la presenza di un grande numero di core all'interno della scheda, molto più grande del numero di core presenti in una normale CPU (si tratta di due ordini di grandezza di differenza); questo implica che possono essere molto utili per programmi paralleli con dati di grandi dimensioni. Le prime ricerche a riguardo furono svolte nel 2001 e nel 2003; diventarono più popolari nel 2007 con l'avvento di CUDA.
 
 CUDA (Compute Unified Device Architecture) è una piattaforma per il calcolo parallelo sviluppata da NVIDIA. Si tratta di una piattaforma che consente l'utilizzo delle schede grafiche NVIDIA per eseguire programmi paralleli, sfruttando appieno le loro potenzialità. La prima versione di CUDA è stata pubblicata nel 2007.
 
-I concetti di base di CUDA sono molto semplici: CUDA prevede una separazione tra l'\textit{host}, che corrisponde la CPU, e il \textit{device}, che corrisponde ad una o più schede grafiche. Queste sono considerate unità indipendenti, che cooperano in modo asincrono: in particolare, l'\textit{host} ha la possibilità di invocare funzioni specifiche che vengono eseguite sul \textit{device}. Queste funzioni vengono dette \textit{kernel}; appena vengono chiamate, queste vengono eseguite asincronicamente e restituiscono il controllo all'\textit{host}.
+I concetti di base di CUDA sono molto semplici: CUDA prevede una separazione tra l'\textit{host}, che corrisponde la CPU, e il \textit{device}, che corrisponde ad una o più schede grafiche. Queste sono considerate unità indipendenti, che cooperano in modo asincrono: in particolare, l'\textit{host} ha la possibilità di invocare funzioni specifiche che vengono eseguite sul \textit{device}. Queste funzioni vengono dette \textit{kernel}; appena vengono chiamate, queste vengono eseguite asincronicamente e restituiscono subito il controllo all'\textit{host}.
 
 \subsection{Architettura di CUDA}
 
+\begin{figure}[h]
+\centering{}
+\includegraphics[width=6.5cm]{grids-and-blocks.png}
+\caption{Gerarchia dei thread in CUDA}
+\label{img:grids-and-blocks}
+\end{figure}
+
 In CUDA, l'unità minima di elaborazione è il \textbf{thread}. CUDA raggruppa logicamente i thread in più \textbf{blocchi}, e a loro volta i blocchi sono raggruppati in \textbf{griglie}.
 
-%(figura)
+Un blocco è considerato un unità indipendente di lavoro: esso può avere una, due o tre dimensioni, il che significa che può essere indicizzato in più dimensioni in base all'occorrenza; ogni blocco può essere eseguito in qualunque ordine all'interno di una griglia. Il numero di thread in un blocco è limitato a va fino a 1024 thread per blocco.
 
+Una griglia rappresenta un lavoro affidato alla GPU: anch'esso può essere tridimensionale e non ha limiti sul numero di blocchi.
 
+Lo \textbf{scheduling dei thread} in CUDA è completamente automatico: non è possibile scegliere quali e quanti core (che in CUDA vengono chiamati \textit{Streaming Multiprocessor} debbano venire utilizzati.
+
+\begin{figure}[h]
+\centering{}
+\includegraphics[width=6.5cm]{warp-branch.png}
+\caption{Esecuzione di un thread in caso di biforcazione}
+\label{img:warp-branch}
+\end{figure}
+
+Quando si scrive un \textit{kernel}, non ci si deve mai preoccupare di come vengono gestiti i thread. Sarà l'hardware stesso a preoccuparsi, durante l'esecuzione, di effettuare lo scheduling migliore sfruttando al massimo l'hardware: in particolare, in CUDA esiste il concetto di \textit{warp}, che rappresenta l'unità minima di schedulazione e contiene un certo numero di thread (massimo 32). L'hardware raggruppa assieme in un \textit{warp} i thread che devono eseguire la stessa porzione di codice; i thread eseguono le istruzioni seguendo il paradigma SIMD.
+
+Nel caso ci sia una biforcazione nel flusso di controllo (causato, ad esempio, da costrutti if-else), la condizione viene calcolata per ogni thread, dopodichè vengono eseguiti i thread per cui è stata verificata, mentre gli altri rimangono fermi. L'hardware comunque può trasferire i thread che sono rimasti fermi in altri warp.
+
+\subsection{Struttura e gestione della memoria}
+
+La memoria in CUDA, riassunta nella figura \ref{img:memory-hierarchy}, è suddivisa in più tipi:
+
+\begin{enumerate}
+    \item \textbf{Memoria globale}: è la memoria più grande (alcuni GB). A questa memoria possono accedervi ogni thread di ogni blocco, ma presenta una latenza di accesso più alta;
+    \item \textbf{Memoria delle constanti}: una memoria persistente anch'essa accessibili da ogni thread, ma ci si può accedere in sola lettura. È più piccola, di soli 64 KB;
+    \item \textbf{Memoria texture}: un'altra memoria di sola lettura e accessibile da tutti, ma è ottimizzata per le texture;
+    \item \textbf{Memoria condivisa}: è una memoria molto veloce che viene condivisa tra tutti i thread di un solo blocco. Per blocco ci sono 48 KB di memoria condivisa;
+    \item \textbf{Memoria locale}: una memoria dedicata per ogni thread, accessibile solo da esso. Non persiste tra l'esecuzione di due kernel;
+\end{enumerate}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=8cm]{cuda-memory-hierarchy.jpg}
+    \caption{La struttura della memoria in CUDA.}
+    \label{img:memory-hierarchy}
+\end{figure}
+
+In CUDA va prestata particolare attenzione all'accesso della memoria. Infatti, quando un thread esegue un accesso alla memoria anche molto piccolo (4 byte), la GPU legge almeno 32 byte consecutivi. Una caratteristica molto importante è il \textbf{raggruppamento degli accessi}: se più thread accedono a posizioni di memoria consecutive, la GPU raggruppa questi accessi in una sola lettura.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=5cm]{aos.jpg}
+    \caption{AoS e SoA a confronto}
+    \label{img:aos}
+\end{figure}
+
+Questo in pratica significa che in CUDA il pattern di memorizzazione classico, ovvero l'Array-of-Structures, non è adeguato e si dovrebbe preferire la Structure-of-Arrays. Il primo consiste nel conversare i dati di un elemento (ad esempio un punto con coordinate x, y e z) in posizioni adiacenti di memoria: di conseguenza, un array di punti consisterà in un array di coordinate (x, y, z) che si ripete per ogni punto. Il secondo consiste nell'avere un array per ogni dato dell'elemento: si avrà un array per ogni coordinata X, coordinata Y e coordinata Z. La figura \ref{img:aos} mostra un confronto visuale dei due pattern.
+
+Immaginiamo di avere più thread che devono leggere ognuno le coordinate X di ogni punto. Se i dati sono memorizzati mediante AoS, i valori in sè sarebbero più lontani tra loro, con conseguenza maggiori letture e maggior utilizzo del bus. Al contrario, con SoA si avrebbe tutti elementi adiacenti e si avrebbe bisogno di meno letture.
+
+\subsection{Il linguaggio CUDA}
+
+Per scrivere un kernel, CUDA prevede un apposito linguaggio: 
 
 \chapter{Stereo Vision}
 
