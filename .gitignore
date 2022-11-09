@@ -19,3 +19,5 @@ out
 *.blg
 *.dvi
 *.synctex.gz
+*.fdb_latexmk
+*.fls
