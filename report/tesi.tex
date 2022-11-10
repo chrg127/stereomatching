@@ -86,7 +86,7 @@
 \vspace{15mm}
 
 \begin{center}
-    {\LARGE{\bf STEREOMATCHING SU GPU}} \\
+    {\LARGE{\bf STEREO MATCHING SU GPU}} \\
 \end{center}
 
 \vspace{15mm}
@@ -155,11 +155,11 @@
 % aggiunge la voce Introduzione nell'indice
 \addcontentsline{toc}{chapter}{Introduzione}
 
-La \textit{Stereo Vision} è un popolare argomento di ricerca nel campo della Visione Artificiale; esso consiste nell\'usare due immagini di una stessa scena, prodotte da due fotocamere diverse, per estrarre informazioni in 3D. L\'idea di base della \textit{Stereo Vision} è la simulazione della visione binoculare umana: le due fotocamere sono disposte in orizzontale per fungere da ``occhi'' che guardano la scena in 3D. Confrontando le due immagini ottenute, si possono ottenere informazioni riguardo alle posizioni degli oggetti della scena.
+La \textit{Stereo Vision} è un popolare argomento di ricerca nel campo della Visione Artificiale; esso consiste nell'usare due immagini di una stessa scena, prodotte da due fotocamere diverse, per estrarre informazioni in 3D. L'idea di base della \textit{Stereo Vision} è la simulazione della visione binoculare umana: le due fotocamere sono disposte in orizzontale per fungere da ``occhi'' che guardano la scena in 3D. Confrontando le due immagini ottenute, si possono ottenere informazioni riguardo alle posizioni degli oggetti della scena.
 
-In questa relazione presenteremo un algoritmo di Stereo Vision: si tratta di un algoritmo parallelo che ha come obiettivo di tracciare le linee di livello di un area geografica. L\'algoritmo in genesi era stato implementato per la \textit{Connection Machine CM-2}, un supercomputer sviluppato negli anni 80, ed era espresso in \textbf{*Lisp}, un linguaggio derivato dal Lisp e ideato per la macchina stessa.
+In questa relazione presenteremo un algoritmo di Stereo Vision: si tratta di un algoritmo parallelo che ha come obiettivo di tracciare le linee di livello di un area geografica. L'algoritmo in genesi era stato implementato per la \textit{Connection Machine CM-2}, un supercomputer sviluppato negli anni 80, ed era espresso in \textbf{*Lisp}, un linguaggio derivato dal Lisp e ideato per la macchina stessa.
 
-Questa relazione tratta anche la traduzione e l\'implementazione dell\'algoritmo in \textbf{CUDA}, ovvero un\'architettura hardware per l\'elaborazione parallela sviluppata da NVIDIA, che consente di eseguire codice parallelo su GPU. Si darà inoltre uno sguardo alle difficoltà che sono state riscontrate nella traduzione da *Lisp a CUDA.
+Questa relazione tratta anche la traduzione e l'implementazione dell'algoritmo in \textbf{CUDA}, ovvero un'architettura hardware per l'elaborazione parallela sviluppata da NVIDIA, che consente di eseguire codice parallelo su GPU. Si darà inoltre uno sguardo alle difficoltà che sono state riscontrate nella traduzione da *Lisp a CUDA.
 
 
 
@@ -171,16 +171,16 @@ Questa relazione tratta anche la traduzione e l\'implementazione dell\'algoritmo
 
 \lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries\rightmark}}
 
-La programmazione parallela è un paradigma di programmazione che sfrutta l\'esecuzione parallela di processori per ottenere prestazioni migliori e risultati nel minor tempo possibile. I calcoli vengono eseguiti in parallelo, ovvero vengono eseguiti simultaneamente su più processi. Questo paradigma si colloca all\'interno dell\'High Performance Computing (HPC), una materia che studia le tecniche e soluzioni hardware che facilitano l\'esecuzione parallela dei calcoli.
+La programmazione parallela è un paradigma di programmazione che sfrutta l'esecuzione parallela di processori per ottenere prestazioni migliori e risultati nel minor tempo possibile. I calcoli vengono eseguiti in parallelo, ovvero vengono eseguiti simultaneamente su più processi. Questo paradigma si colloca all'interno dell'High Performance Computing (HPC), una materia che studia le tecniche e soluzioni hardware che facilitano l'esecuzione parallela dei calcoli.
 
 
 
 \section{Evoluzione dei Processi}
 
-Perchè mai si dovrebbe ricorrere all\'esecuzione parallela per ottenere prestazioni migliori? Questa domanda trova risposta nello studio dell'evoluzione dei processori: per anni si è tenuto conto della cosiddetta ``Legge di Moore'', che ipotizza che ``il numero di transistor contenuti all'interno di un chip raddoppia ogni due anni''. Questa legge fu enunciata da Gordon E. Moore nel 1965 e spiega che effettivamente le prestazioni di un chip si duplicavano ogni due anni. La sua osservazione si rivelò corretta per due decenni, ma intorno agli anni 2000 questo andamento iniziò a calare. I motivi principali di questo calo sono:
+Perché mai si dovrebbe ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Questa domanda trova risposta nello studio dell'evoluzione dei processori: per anni si è tenuto conto della cosiddetta ``Legge di Moore'', che ipotizza che ``il numero di transistor contenuti all'interno di un chip raddoppia ogni due anni''. Questa legge fu enunciata da Gordon E. Moore nel 1965 e spiega che effettivamente le prestazioni di un chip si duplicavano ogni due anni. La sua osservazione si rivelò corretta per due decenni, ma intorno agli anni 2000 questo andamento iniziò a calare. I motivi principali di questo calo sono:
 
 \begin{itemize}
-    \item La dimensione dei transistor. Il miglior modo per aumentare il numero di transistor è di renderli sempre più piccoli, ma esiste un limite fisico della grandezza minima. I transistor di oggi vanno dai 20 nm all'1 nm;
+    \item La dimensione dei transistor. Il miglior modo per aumentare il numero di transistor è di renderli sempre più piccoli, ma esiste un limite fisico della grandezza minima. I transistor di oggi vanno dai 20 nm ai 3 nm;
     \item Il calore dissipato dal processore. Un processore più veloce corrisponde ad una più grande quantità di calore dissipato, che porta a problemi di instabilità nel processore.
 \end{itemize}
 
@@ -231,7 +231,7 @@ Lo \textbf{scheduling dei thread} in CUDA è completamente automatico: non è po
 
 \subsection{Struttura e gestione della memoria}
 
-Quando si scrive un \textit{kernel}, non ci si deve mai preoccupare di come vengono gestiti i thread. Sarà l\'hardware stesso a preoccuparsi, durante l\'esecuzione, di effettuare lo scheduling migliore sfruttando al massimo l\'hardware: in particolare, in CUDA esiste il concetto di \textit{warp}, che rappresenta l\'unità minima di schedulazione e contiene un certo numero di thread (massimo 32). L\'hardware raggruppa assieme in un \textit{warp} i thread che devono eseguire la stessa porzione di codice; i thread eseguono le istruzioni seguendo il paradigma SIMD.
+Quando si scrive un \textit{kernel}, non ci si deve mai preoccupare di come vengono gestiti i thread. Sarà l'hardware stesso a preoccuparsi, durante l'esecuzione, di effettuare lo scheduling migliore sfruttando al massimo l'hardware: in particolare, in CUDA esiste il concetto di \textit{warp}, che rappresenta l'unità minima di schedulazione e contiene un certo numero di thread (massimo 32). L'hardware raggruppa assieme in un \textit{warp} i thread che devono eseguire la stessa porzione di codice; i thread eseguono le istruzioni seguendo il paradigma SIMD.
 
 \begin{figure}[h]
 \centering{}
@@ -248,7 +248,7 @@ La memoria in CUDA, riassunta nella figura \ref{img:memory-hierarchy}, è suddiv
 
 \begin{itemize}
     \item \textbf{Memoria globale}: è la memoria più grande (alcuni GB). A questa memoria possono accedervi ogni thread di ogni blocco, ma presenta una latenza di accesso più alta;
-    \item \textbf{Memoria delle constanti}: una memoria persistente anch\'essa accessibili da ogni thread, ma ci si può accedere in sola lettura. È più piccola, di soli 64 KB;
+    \item \textbf{Memoria delle constanti}: una memoria persistente anch'essa accessibili da ogni thread, ma ci si può accedere in sola lettura. È più piccola, di soli 64 KB;
     \item \textbf{Memoria texture}: un'altra memoria di sola lettura e accessibile da tutti, ma è ottimizzata per le texture;
     \item \textbf{Memoria condivisa}: è una memoria molto veloce che viene condivisa tra tutti i thread di un solo blocco. Per blocco ci sono 48 KB di memoria condivisa;
     \item \textbf{Memoria locale}: una memoria dedicata per ogni thread, accessibile solo da esso. Non persiste tra l'esecuzione di due kernel;
@@ -276,7 +276,7 @@ Immaginiamo di avere più thread che devono leggere ognuno le coordinate X di og
 
 \subsection{Il linguaggio CUDA}
 
-Per scrivere un kernel, CUDA prevede un apposito linguaggio: il linguaggio che si usa è un estensione del C e del C++ con l'aggiunta di parole chiave ed altre caratteristiche per facilitare la scrittura del codice per GPU.
+Per scrivere un kernel, CUDA prevede un apposito linguaggio: il linguaggio che si usa è un estensione del C e del C++ con l'aggiunta di parole chiave, funzioni di libreria ed altre caratteristiche per facilitare la scrittura del codice per GPU.
 
 In particolare, CUDA aggiunge le seguenti parole chiave per le funzioni:
 
@@ -290,21 +290,38 @@ In particolare, CUDA aggiunge le seguenti parole chiave per le funzioni:
 
 \begin{itemize}
     \item \verb|__constant__|: piazza la variabile in memoria costante;
-    \item \verb|__device__|: piazza la variabile nella memoria globable della GPU. Essa è comunque accessibile dall\'host tramite opportune funzioni;
+    \item \verb|__device__|: piazza la variabile nella memoria globale della GPU. Essa è comunque accessibile dall'host tramite opportune funzioni;
     \item \verb|__shared__|: piazza la variabile nella memoria shared. In questo caso, il suo accesso è limitato al singolo blocco;
 \end{itemize}
 
-L\'estensione più importante in CUDA riguarda il modo in cui si chiamano le funzioni dichiarate \verb|__global__|:
+L'estensione più importante in CUDA riguarda il modo in cui si chiamano le funzioni dichiarate \verb|__global__|: queste richiedono due parametri obbligatori, ovvero il numero di blocchi e il numero di thread per blocco da utilizzare per l'esecuzione.
 
-\chapter{Stereo Vision}
+\section{Stereo Vision}
 
-secondo capitolo.
+La visione artificiale è il campo dell'informatica che si occupa di analizzare ed interpretare le immagini per ottenere un modello approssimato del mondo reale. In sostanza, si occupa di capire ed automatizzare compiti che il sistema di visione umano riesce a fare.
 
+La Stereo Vision è una sottobranca della visione artificiale che si occupa di ottenere informazioni spaziali utilizzando due immagini (da qui viene il termine \textit{stereo}).
+
+Gli uomini posseggono due occhi frontali che vedono il mondo esterno da due posizioni differenti: queste due posizioni vengono combinate, usando le piccole differenze presenti tra le due per recuperare le informazioni in 3D sull'ambiente esterno. L'idea di base della Stereo Vision è la simulazione di questo sistema: per far ciò si utilizzano due fotocamere, disposte orizzontalmente l'una all'altra, in modo che fungano come da occhi umani che guardano la scena di cui si è interessati.
+
+Un problema importante nella Stereo Vision è come inferire la profondità degli oggetti della scena usando le due immagini prese dalle fotocamere. È qui che entra in gioco lo \textit{Stereo Matching}: durante la fase di analisi delle due immagini, si cerca un \textit{match} tra un oggetto di un immagine e la posizione dell'oggetto nell'altra immagine: la differenza della sua posizione nelle due immagini determina la posizione finale dell'oggetto. Le informazioni che si ottengono sulla profondità degli oggetti vengono chiamate nel loro complesso \textit{mappa di disparità}.
+
+\subsection{Fasi di analisi}
+
+Qui verrano descritte le fasi di analisi delle due immagini. In generale: % ... what?
+
+\begin{enumerate}
+    \item Nel caso le immagini siano distorte o abbiano qualche difetto, bisognerà effettuare una \textbf{calibrazione della fotocamera}.
+    \item stereo matching
+    \item stereo matching
+    \item stereo matching
+        % idk man just watch that shitty stereo vision video again
+\end{enumerate}
 
 
 \chapter{Connection Machine e *Lisp}
 
-il terzo capitolo.
+Il terzo capitolo.
 
 
 
@@ -314,7 +331,7 @@ il terzo capitolo.
 
 \chapter{Progettazione}
 
-capitolo 4
+Capitolo 4
 
 
 
