@@ -4,24 +4,12 @@
 \usepackage[utf8]{inputenc}
 \usepackage{fancyhdr}
 \usepackage{float}
-
-% libreria per avere l'indentazione all'inizio dei capitoli
-\usepackage{indentfirst}
-
-% per il codice
-\usepackage{listings}
-
-% libreria per mostrare le etichette
-%\usepackage{showkeys}
-
-% libreria per inserire grafici
-\usepackage{graphicx}
-
-% libreria per utilizzare font particolari, ad esempio \textsc{}
-\usepackage{newlfont}
-
-% librerie matematiche
-\usepackage{amssymb}
+\usepackage{indentfirst}                        % per avere l'indentazione all'inizio dei capitoli
+\usepackage{listings}                           % per il codice
+%\usepackage{showkeys}                          % per mostrare le etichette
+\usepackage{graphicx}                           % libreria per inserire grafici
+\usepackage{newlfont}                           % libreria per utilizzare font particolari, ad esempio \textsc{}
+\usepackage{amssymb}                            % librerie matematiche
 \usepackage{amsmath}
 \usepackage{latexsym}
 \usepackage{amsthm}
@@ -31,22 +19,27 @@
 \usepackage[square,numbers,sort]{natbib}
 \usepackage{xcolor}
 
-% \bibliographystyle{unsrt}
 \bibliographystyle{unsrtnat}
 
 \lstset{
-    frame=single,
-    breaklines=true
+    basicstyle=\ttfamily,
+    columns=fullflexible,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4,
+    aboveskip=1em,
+    belowskip=1em
 }
 
 \oddsidemargin=30pt
 \evensidemargin=20pt
 
-% serve per la sillabazione: tra parentesi vanno inserite come nell'esempio le
-% parole che latex non riesce a tagliare nel modo giusto andando a capo.
-\hyphenation{sil-la-ba-zio-ne pa-ren-te-si}
-
-% comandi per l'impostazione della pagina
+% per l'impostazione della pagina
 \pagestyle{fancy}
 \addtolength{\headwidth}{20pt}
 \renewcommand{\chaptermark}[1]{\markboth{\thechapter.\ #1}{}}
@@ -62,19 +55,10 @@
 
 
 
-
 \begin{document}
-
-% scelta delle dimensioni della pagina
-%\setlength{\textwidth}{13.5cm}
-%\setlength{\textheight}{19cm}
-%\setlength{\footskip}{3cm}
-
-% %%% inizio prefazione %%%
 
 \pagenumbering{roman}
 
-%\textwidth=450pt
 \oddsidemargin=25pt
 
 \begin{titlepage}
@@ -112,7 +96,6 @@
 \begin{minipage}[t]{0.47\textwidth}\raggedleft
     {\large{\bf Presentata da:\\ \xstudent}} \end{minipage}
 \vspace{20mm}
-% TODO anno e sessione
 \begin{center}
     \large{\bf Sessione I\\ Anno Accademico 2022-2023}
 \end{center}
@@ -141,6 +124,9 @@
 
 %\listoftables
 %\clearpage{\pagestyle{empty}\cleardoublepage}
+
+% \lstlistoflistings
+% \clearpage{\pagestyle{empty}\cleardoublepage}
 
 \pagenumbering{arabic}
 
@@ -342,7 +328,7 @@ Un approccio alternativo consiste nell'\textit{edge matching}. In questo caso pe
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{contours.png}
-    \caption{Un esempio di contorni dell'immagine}
+    \caption{I contorni di un immagine}
     \label{img:contours}
 \end{figure}
 
@@ -367,7 +353,7 @@ Ogni processore operava su un solo elemento: se c'erano meno di 65535 elementi, 
 
 Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John McCarthy. Si tratta di un linguaggio basato sui paradigmi imperativo e funzionale, con una sintassi molto unica. Il seguente codice presenta un esempio del linguaggio; si tratta di una funzione che trova se un elemento esiste in un array:
 
-\begin{lstlisting}
+\begin{lstlisting}[caption=Esempio di codice Lisp]
 (defun contains-element (arr i element)
   (if (= i (array-dimension arr 0))
     0
@@ -378,8 +364,8 @@ Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John 
 
 Il Lisp ha molti dialetti e *Lisp è uno di questi (in particolare, è un dialetto del Common Lisp). *Lisp, come linguaggio pensato per essere usato nella Connection Machine, aggiunge nuove caratteristiche per la programmazione parallela: ad esempio, molti costrutti come \verb|if| e \verb|=| hanno una versione parallela che agiscono su tutti i dati in contemporanea. In particolare, introduce una struttura dati, la \textit{pvar}, che rappresenta una collezione di valori memorizzati uno per ogni processore. Il seguente codice mostra un esempio di codice *Lisp, che è una traduzione della funzione sopra:
 
-\begin{lstlisting}
-(defun contains-element (pvar element)
+\begin{lstlisting}[caption=Esempio di codice *Lisp]
+(*defun contains-element (pvar element)
   (if!! (=!! pvar element)
         (!! 1)
         (!! 0)))
