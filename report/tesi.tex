@@ -18,7 +18,8 @@
 \usepackage{newlfont}
 
 % librerie matematiche
-\usepackage{amssymb} \usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsmath}
 \usepackage{latexsym}
 \usepackage{amsthm}
 \usepackage{cite}
@@ -240,7 +241,7 @@ Quando si scrive un \textit{kernel}, non ci si deve mai preoccupare di come veng
 \label{img:warp-branch}
 \end{figure}
 
-Nel caso ci sia una biforcazione nel flusso di controllo (causato, ad esempio, da costrutti if-else), la condizione viene calcolata per ogni thread, dopodichè vengono eseguiti i thread per cui è stata verificata, mentre gli altri rimangono fermi. L'hardware comunque può trasferire i thread che sono rimasti fermi in altri warp.
+Nel caso ci sia una biforcazione nel flusso di controllo (causato, ad esempio, da costrutti \verb|if-else|), la condizione viene calcolata per ogni thread, dopodichè vengono eseguiti i thread per cui è stata verificata, mentre gli altri rimangono fermi. L'hardware comunque può trasferire i thread che sono rimasti fermi in altri warp.
 
 \newpage
 
@@ -296,30 +297,62 @@ In particolare, CUDA aggiunge le seguenti parole chiave per le funzioni:
 
 L'estensione più importante in CUDA riguarda il modo in cui si chiamano le funzioni dichiarate \verb|__global__|: queste richiedono due parametri obbligatori, ovvero il numero di blocchi e il numero di thread per blocco da utilizzare per l'esecuzione.
 
-\section{Stereo Vision}
+\chapter{Stereo Vision}
 
 La visione artificiale è il campo dell'informatica che si occupa di analizzare ed interpretare le immagini per ottenere un modello approssimato del mondo reale. In sostanza, si occupa di capire ed automatizzare compiti che il sistema di visione umano riesce a fare.
 
 La Stereo Vision è una sottobranca della visione artificiale che si occupa di ottenere informazioni spaziali utilizzando due immagini (da qui viene il termine \textit{stereo}).
 
-Gli uomini posseggono due occhi frontali che vedono il mondo esterno da due posizioni differenti: queste due posizioni vengono combinate, usando le piccole differenze presenti tra le due per recuperare le informazioni in 3D sull'ambiente esterno. L'idea di base della Stereo Vision è la simulazione di questo sistema: per far ciò si utilizzano due fotocamere, disposte orizzontalmente l'una all'altra, in modo che fungano come da occhi umani che guardano la scena di cui si è interessati.
+Gli uomini posseggono due occhi frontali che vedono il mondo esterno da due posizioni differenti: queste due posizioni vengono combinate, usando le piccole differenze presenti tra le due per recuperare le informazioni in 3D sull'ambiente esterno. L'idea di base della Stereo Vision è la simulazione di questo sistema: per far ciò si utilizzano due fotocamere, disposte orizzontalmente l'una all'altra, in modo che fungano come da occhi umani che guardano la scena di cui si è interessati. Le due immagini che si ottengono dalle fotocamere sono chiamate \textit{Stereo Pair}.
 
-Un problema importante nella Stereo Vision è come inferire la profondità degli oggetti della scena usando le due immagini prese dalle fotocamere. È qui che entra in gioco lo \textit{Stereo Matching}: durante la fase di analisi delle due immagini, si cerca un \textit{match} tra un oggetto di un immagine e la posizione dell'oggetto nell'altra immagine: la differenza della sua posizione nelle due immagini determina la posizione finale dell'oggetto. Le informazioni che si ottengono sulla profondità degli oggetti vengono chiamate nel loro complesso \textit{mappa di disparità}.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{tsukuba-stereo-pair.png}
+    \caption{Un esempio di \textit{stereo pair}.}
+    \label{img:stereo_pair}
+\end{figure}
 
-\subsection{Fasi di analisi}
+Un problema importante nella Stereo Vision è come inferire la profondità degli oggetti della scena usando le due immagini prese dalle fotocamere. È qui che entrano in gioco gli algoritmi di \textit{Stereo Matching}: durante la fase di analisi delle due immagini, si cerca un \textit{match} tra un oggetto di un immagine e la posizione dell'oggetto nell'altra immagine: la differenza della sua posizione nelle due immagini determina la posizione finale dell'oggetto. Le informazioni che si ottengono sulla profondità degli oggetti vengono chiamate nel loro complesso \textit{mappa di disparità}.
 
-Qui verrano descritte le fasi di analisi delle due immagini. In generale: % ... what?
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{disparity_map.jpg}
+    \caption[Esempio di mappa di disparità.]{Esempio di mappa di disparità. Le regioni più chiare indicano oggetti più vicini, mentre quelle più scure indicano oggetti più lontani.}
+    \label{img:disparity_map}
+\end{figure}
+
+\section{Fasi di analisi}
+
+Per estrarre le informazioni 3D, la maggior parte degli algoritmi di Stereo Vision seguono i seguenti passi:
 
 \begin{enumerate}
     \item Nel caso le immagini siano distorte o abbiano qualche difetto, bisognerà effettuare una \textbf{calibrazione della fotocamera}.
-    \item stereo matching
-    \item stereo matching
-    \item stereo matching
-        % idk man just watch that shitty stereo vision video again
+    \item Le immagini vengono riproiettate in un piano comune per permettere il confronto diretto. Questo passo viene detto \textbf{rettificazione delle immagini} e in generale si effettua soltanto se i piani delle due fotocamere non giacciono sulla stessa linea (questa linea viene chiamata \textit{baseline}.
+    \item Si fa il \textbf{matching} tra le due immagini e si crea la mappa di disparità. Questo di solito avviene pixel per pixel: dato il pixel $p_{1}$ della prima immagine, si cerca un secondo pixel $p_{2}$ nella seconda immagine che corrisponda al primo. Come calcolare se due pixel corrispondono dipende dall'algoritmo.
+    \item Opzionalmente, si effettua una \textbf{ricostruzione} in 3D della scena. Questo viene fatto determinando le coordinate 3D di ogni punto a partire dalle coordinate 2D delle coppie di punti corrispondenti nelle immagini.
 \end{enumerate}
 
+\section{Tecniche di \textit{matching}}
 
-\chapter{Connection Machine e *Lisp}
+L'approccio classico per lo stereo matching è: per ogni pixel $p = (x, y)$ nell'immagine di partenza, si trova la linea corrispondente nell'immagine di destinazione, poi si trova il pixel $p'$ più somigliante nella linea. Nei casi più semplici, la linea corrispondente è la coordinata $y$ del punto $p$.
+
+Il calcolo della \textbf{somiglianza} differisce in ogni algoritmo, ma in generale viene calcolata utilizzando la regione intorno al punto. Si definiscono due \textit{finestre}, di grandezza $NxN$: $W (x, y)$, centrata nel punto $p$, e $W'$, che viene fatta scorrere in orizzontale lungo la linea. Ad ogni scorrimento corrisponde un nuovo punto $p'$. Per ogni punto $p'$ trovato, si calcola una metrica particolare derivata dall'intorno. Tre metriche popolari sono la \textit{Correlazione Normalizzata}, la \textit{Sum of Squared Differences} e la \textit{Sum of Absolute Differences}.
+
+Un approccio alternativo consiste nell'\textit{edge matching}. In questo caso per le due immagini si trovano i contorni, poi si fa il \textit{match} dei contorni in modo simile al metodo delle finestre: in questo caso si calcola la somiglianza tra contorni.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{contours.png}
+    \caption{Un esempio di contorni dell'immagine}
+    \label{img:contours}
+\end{figure}
+
+% perhaps consider a section about epipolar geometry
+% vim doesn't know about epipolar or epipolare
+
+
+
+\chapter{La \textit{Connection Machine} e *Lisp}
 
 Il terzo capitolo.
 

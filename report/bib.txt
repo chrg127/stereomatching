@@ -5,3 +5,5 @@ https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
 https://ipython-books.github.io/58-writing-massively-parallel-code-for-nvidia-graphics-cards-gpus-with-cuda/
 https://www.researchgate.net/figure/Warp-divergence-due-to-if-else-statements_fig15_317608134
 https://www.researchgate.net/figure/Memory-model-CUDA-memory-hierarchy_fig2_51529494
+https://docs.opencv.org/4.x/dd/d53/tutorial_py_depthmap.html
+https://www.researchgate.net/figure/Tsukuba-stereo-pair_fig1_278622997
