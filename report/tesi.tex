@@ -8,6 +8,9 @@
 % libreria per avere l'indentazione all'inizio dei capitoli
 \usepackage{indentfirst}
 
+% per il codice
+\usepackage{listings}
+
 % libreria per mostrare le etichette
 %\usepackage{showkeys}
 
@@ -69,6 +72,8 @@
 
 % %%% inizio prefazione %%%
 
+\pagenumbering{roman}
+
 %\textwidth=450pt
 \oddsidemargin=25pt
 
@@ -111,14 +116,10 @@
 \begin{center}
     \large{\bf Sessione I\\ Anno Accademico 2022-2023}
 \end{center}
-\end{titlepage}
 
 \clearpage{\pagestyle{empty}\cleardoublepage}
 
-\newpage
-
 % %%% pagina della dedica %%%
-\begin{titlepage}
 \thispagestyle{empty}
 \topmargin=6.5cm
 \raggedleft
@@ -129,8 +130,6 @@
 \end{titlepage}
 
 % %%% indice %%%
-
-\pagenumbering{roman}
 
 \tableofcontents
 \rhead[\fancyplain{}{\bfseries\leftmark}]{\fancyplain{}{\bfseries\thepage}}
@@ -336,7 +335,7 @@ Per estrarre le informazioni 3D, la maggior parte degli algoritmi di Stereo Visi
 
 L'approccio classico per lo stereo matching è: per ogni pixel $p = (x, y)$ nell'immagine di partenza, si trova la linea corrispondente nell'immagine di destinazione, poi si trova il pixel $p'$ più somigliante nella linea. Nei casi più semplici, la linea corrispondente è la coordinata $y$ del punto $p$.
 
-Il calcolo della \textbf{somiglianza} differisce in ogni algoritmo, ma in generale viene calcolata utilizzando la regione intorno al punto. Si definiscono due \textit{finestre}, di grandezza $NxN$: $W (x, y)$, centrata nel punto $p$, e $W'$, che viene fatta scorrere in orizzontale lungo la linea. Ad ogni scorrimento corrisponde un nuovo punto $p'$. Per ogni punto $p'$ trovato, si calcola una metrica particolare derivata dall'intorno. Tre metriche popolari sono la \textit{Correlazione Normalizzata}, la \textit{Sum of Squared Differences} e la \textit{Sum of Absolute Differences}.
+Il calcolo della \textbf{somiglianza} differisce in ogni algoritmo, ma in generale viene calcolata utilizzando la regione intorno al punto. Si definiscono due \textit{finestre} di grandezza $NxN$: $W (x, y)$, centrata nel punto $p$, e $W'$, che viene fatta scorrere in orizzontale lungo la linea. Ad ogni scorrimento corrisponde un nuovo punto $p'$. Per ogni punto $p'$ trovato, si calcola una metrica particolare derivata dall'intorno. Tre metriche popolari sono la \textit{Correlazione Normalizzata}, la \textit{Sum of Squared Differences} e la \textit{Sum of Absolute Differences}.
 
 Un approccio alternativo consiste nell'\textit{edge matching}. In questo caso per le due immagini si trovano i contorni, poi si fa il \textit{match} dei contorni in modo simile al metodo delle finestre: in questo caso si calcola la somiglianza tra contorni.
 
@@ -348,27 +347,47 @@ Un approccio alternativo consiste nell'\textit{edge matching}. In questo caso pe
 \end{figure}
 
 % perhaps consider a section about epipolar geometry
-% vim doesn't know about epipolar or epipolare
+% vim doesn't know about epipolar or epipolare funny
 
 
 
 \chapter{La \textit{Connection Machine} e *Lisp}
 
-Il terzo capitolo.
+L'algoritmo di stereo matching che presentiamo fu descritto e implementato per la \textbf{Connection Machine CM-2} nel linguaggio \textbf{*Lisp}. In questo capitolo diamo una breve descrizione delle loro caratteristiche, in modo da poter confrontare l'algoritmo originale con la versione in CUDA.
 
+\section{La Connection Machine CM-2}
 
+La \textit{Connection Machine CM-2} fa parte di una serie di supercomputer sviluppati dall'azienda Thinking Machines nei primo anni 80. La macchina era un supercomputer parallelo basata sul parallelismo a livello di dati (\textit{data level parallelism}), che consiste nell'eseguire un'operazione su più dati in parallelo, in contrasto con il parallelismo a livello di istruzioni, che consiste nell'eseguire in parallelo le istruzioni che possono essere eseguite indipendentemente. In pratica, ciò significa che la Connection Machine operava come una gigantesca macchina SIMD (Single Instruction Multiple Data).
+
+La macchina, per eseguire i programma, utilizzava una parte di front-end, dove veniva memorizzato il programma e dove veniva eseguito il codice seriale. Quando un programma incontrava istruzioni parallele (istruzioni che operava sui dati in modo parallelo), le passava all'hardware della Connection Machine: questo era composto da 65535 processori, ognuno con 4096 bit di memoria.
+
+Ogni processore operava su un solo elemento: se c'erano meno di 65535 elementi, allora i processori rimanenti venivano disabilitati; se ce n'erano di più, allora la macchina operava con processori virtuali. I processori potevano comunicare tra di loro attraverso un sistema di inter-connessione chiamato \textit{router}: questo funzionava con meccanismi di comunicazione a scambio di messaggi ed era implementato in software.
+
+\section{*Lisp}
+
+Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John McCarthy. Si tratta di un linguaggio basato sui paradigmi imperativo e funzionale, con una sintassi molto unica. Il seguente codice presenta un esempio del linguaggio; si tratta di una funzione che trova se un elemento esiste in un array:
+
+\begin{lstlisting}
+(defun contains-element (arr i element)
+  (if (= i (array-dimension arr 0))
+    0
+    (if (= (aref arr i) element)
+      1
+      (contains-element arr (+ i 1) element))))
+\end{lstlisting}
+
+Il Lisp ha molti dialetti e *Lisp è uno di questi (in particolare, è un dialetto del Common Lisp). *Lisp, come linguaggio pensato per essere usato nella Connection Machine, aggiunge nuove caratteristiche per la programmazione parallela: ad esempio, molti costrutti come \verb|if| e \verb|=| hanno una versione parallela che agiscono su tutti i dati in contemporanea. In particolare, introduce una struttura dati, la \textit{pvar}, che rappresenta una collezione di valori memorizzati uno per ogni processore. Il seguente codice mostra un esempio di codice *Lisp, che è una traduzione della funzione sopra:
+
+\begin{lstlisting}
+(defun contains-element (pvar element)
+  (if!! (=!! pvar element)
+        (!! 1)
+        (!! 0)))
+\end{lstlisting}
 
 \chapter{Descrizione dell'algoritmo}
 
-
-
 \chapter{Progettazione}
-
-Capitolo 4
-
-
-
-\chapter{Metriche di valutazione}
 
 \chapter{Valutazione delle prestazioni}
 
