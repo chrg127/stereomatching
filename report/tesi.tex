@@ -15,10 +15,13 @@
 \usepackage{amsthm}
 \usepackage{cite}
 \usepackage{listings}
+\usepackage{url}
 \usepackage{hyperref}
 \usepackage[square,numbers,sort]{natbib}
 \usepackage{xcolor}
 \usepackage{stackengine}
+\usepackage{copyrightbox}
+\usepackage{caption}
 
 \bibliographystyle{unsrtnat}
 
@@ -36,6 +39,8 @@
     aboveskip=1em,
     belowskip=1em
 }
+
+\newcommand{\source}[1]{\caption*{\hfill \scriptsize Fonte: {#1}} }
 
 \oddsidemargin=30pt
 \evensidemargin=20pt
@@ -164,24 +169,22 @@ La programmazione parallela è un paradigma di programmazione che sfrutta l'esec
 
 \section{Evoluzione dei Processi}
 
-Perché mai si dovrebbe ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Questa domanda trova risposta nello studio dell'evoluzione dei processori: per anni si è tenuto conto della cosiddetta ``Legge di Moore'', che ipotizza che ``il numero di transistor contenuti all'interno di un chip raddoppia ogni due anni''. Questa legge fu enunciata da Gordon E. Moore nel 1965 e spiega che effettivamente le prestazioni di un chip si duplicavano ogni due anni. La sua osservazione si rivelò corretta per due decenni, ma intorno agli anni 2000 questo andamento iniziò a calare. I motivi principali di questo calo sono:
+Perché mai si dovrebbe ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Questa domanda trova risposta nello studio dell'evoluzione dei processori: per anni si è tenuto conto della cosiddetta ``Legge di Moore'', che ipotizza che ``il numero di transistor contenuti all'interno di un chip raddoppia ogni due anni''. Questa legge fu enunciata da Gordon E. Moore nel 1965 e spiega che effettivamente le prestazioni di un chip si duplicavano ogni due anni \cite{moorelaw}. La sua osservazione si rivelò corretta per due decenni, ma intorno agli anni 2000 questo andamento iniziò a calare. I motivi principali di questo calo sono:
 
 \begin{itemize}
     \item La dimensione dei transistor. Il miglior modo per aumentare il numero di transistor è di renderli sempre più piccoli, ma esiste un limite fisico della grandezza minima. I transistor di oggi vanno dai 20 nm ai 3 nm;
     \item Il calore dissipato dal processore. Un processore più veloce corrisponde ad una più grande quantità di calore dissipato, che porta a problemi di instabilità nel processore.
 \end{itemize}
 
-Al posto di aumentare il numero di transistor, negli ultimi due decenni sono state ideate nuove architetture che sfruttano il parallelismo: queste sono le architetture parallele, anche chiamate multicore o multiprocessore. Queste architetture sono sviluppate aggiungendo più processori logici dentro ad un chip. Le prestazioni che si possono ottenere con le architetture parallele derivano quindi dalla suddivisione del lavoro che è distribuito in più unità operazionali.
-
 \begin{figure}[h]
     \centering
-    \def\stackalignment{r}
-    \stackunder
-        {\includegraphics[width=\textwidth]{50-years-processor-trend.png}}
-        {\scriptsize Fonte: \url{https://github.com/karlrupp/microprocessor-trend-data}}
+    \includegraphics[width=\textwidth]{50-years-processor-trend.png}
+    \source{\url{https://github.com/karlrupp/microprocessor-trend-data}}
     \caption{Evoluzione delle caratteristiche dei processori}
     \label{img:trend_proc}
 \end{figure}
+
+Al posto di aumentare il numero di transistor, negli ultimi due decenni sono state ideate nuove architetture che sfruttano il parallelismo: queste sono le architetture parallele, anche chiamate multicore o multiprocessore. Queste architetture sono sviluppate aggiungendo più processori logici dentro ad un chip. Le prestazioni che si possono ottenere con le architetture parallele derivano quindi dalla suddivisione del lavoro che è distribuito in più unità operazionali.
 
 Nella figura \ref{img:trend_proc} viene mostrata l'evoluzione dei processori nel corso degli ultimi decenni. In particolare, si può notare come la frequenza media dei processori si sia stabilizzata, mentre più o meno dalla metà degli anni 2000 sia cresciuto il numero di core logici, a seguito di ricerche sullo sviluppo delle architetture parallele.
 
@@ -191,33 +194,29 @@ Esistono diverse tipologie di architetture parallele; in questa relazione ci int
 
 \begin{figure}[h]
     \centering
-    \def\stackalignment{r}
-    \stackunder
-        {\includegraphics[width=\textwidth]{cpu-gpu-comparison.png}}
-        {\scriptsize Fonte: \url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html}}
+    \includegraphics[width=\textwidth]{cpu-gpu-comparison.png}
+    \source{\url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html}}
     \caption[Confronto tra CPU e GPU]{Confronto tra l'architettura di una CPU e quella di una GPU. Da notare l'elevato numero di core della GPU.}
     \label{img:cpu-gpu-comparison}
 \end{figure}
 
 Il nome di queste architetture potrebbe dare confusione dato che, in generale, la funzione di una scheda video è strettamente legata alla grafica. Il motivo per cui sono interessanti è per la presenza di un grande numero di core all'interno della scheda, molto più grande del numero di core presenti in una normale CPU (si tratta di due ordini di grandezza di differenza); questo implica che possono essere molto utili per programmi paralleli con dati di grandi dimensioni. Le prime ricerche a riguardo furono svolte nel 2001 e nel 2003; diventarono più popolari nel 2007 con l'avvento di CUDA.
 
-CUDA (Compute Unified Device Architecture) è una piattaforma per il calcolo parallelo sviluppata da NVIDIA. Si tratta di una piattaforma che consente l'utilizzo delle schede grafiche NVIDIA per eseguire programmi paralleli, sfruttando appieno le loro potenzialità. La prima versione di CUDA è stata pubblicata nel 2007.
+CUDA (Compute Unified Device Architecture) è una piattaforma per il calcolo parallelo sviluppata da NVIDIA. Si tratta di una piattaforma che consente l'utilizzo delle schede grafiche NVIDIA per eseguire programmi paralleli, sfruttando appieno le loro potenzialità. La prima versione di CUDA è stata pubblicata nel 2007 \cite{CUDA}.
 
 I concetti di base di CUDA sono molto semplici: CUDA prevede una separazione tra l'\textit{host}, che corrisponde la CPU, e il \textit{device}, che corrisponde ad una o più schede grafiche. Queste sono considerate unità indipendenti, che cooperano in modo asincrono: in particolare, l'\textit{host} ha la possibilità di invocare funzioni specifiche che vengono eseguite sul \textit{device}. Queste funzioni vengono dette \textit{kernel}; appena vengono chiamate, queste vengono eseguite in modo asincrono e restituiscono subito il controllo all'\textit{host}.
 
 \subsection{Architettura di CUDA}
 
 \begin{figure}[h]
-    \centering{}
-    \def\stackalignment{r}
-    \stackunder
-        {\includegraphics[width=6.5cm]{grids-and-blocks.png}}
-        {\scriptsize Fonte: \url{https://ipython-books.github.io/58-writing-massively-parallel-code-for-nvidia-graphics-cards-gpus-with-cuda/}}
+    \centering
+    \includegraphics[width=6.5cm]{grids-and-blocks.png}
+    \source{\url{https://ipython-books.github.io/58-writing-massively-parallel-code-for-nvidia-graphics-cards-gpus-with-cuda/}}
     \caption{Gerarchia dei thread in CUDA}
     \label{img:grids-and-blocks}
 \end{figure}
 
-In CUDA, l'unità minima di elaborazione è il \textbf{thread}. CUDA raggruppa logicamente i thread in più \textbf{blocchi}, e a loro volta i blocchi sono raggruppati in \textbf{griglie}.
+In CUDA, l'unità minima di elaborazione è il \textbf{thread}. CUDA raggruppa logicamente i thread in più \textbf{blocchi}, e a loro volta i blocchi sono raggruppati in \textbf{griglie} \cite{cudaguide}.
 
 Un blocco è considerato un unità indipendente di lavoro: esso può avere una, due o tre dimensioni, il che significa che può essere indicizzato in più dimensioni in base all'occorrenza; ogni blocco può essere eseguito in qualunque ordine all'interno di una griglia. Il numero di thread in un blocco è limitato a va fino a 1024 thread per blocco.
 
@@ -229,19 +228,15 @@ Lo \textbf{scheduling dei thread} in CUDA è completamente automatico: non è po
 
 Quando si scrive un \textit{kernel}, non ci si deve mai preoccupare di come vengono gestiti i thread. Sarà l'hardware stesso a preoccuparsi, durante l'esecuzione, di effettuare lo scheduling migliore sfruttando al massimo l'hardware: in particolare, in CUDA esiste il concetto di \textit{warp}, che rappresenta l'unità minima di schedulazione e contiene un certo numero di thread (massimo 32). L'hardware raggruppa assieme in un \textit{warp} i thread che devono eseguire la stessa porzione di codice; i thread eseguono le istruzioni seguendo il paradigma SIMD.
 
+Nel caso ci sia una biforcazione nel flusso di controllo (causato, ad esempio, da costrutti \verb|if-else|), la condizione viene calcolata per ogni thread, dopodichè vengono eseguiti i thread per cui è stata verificata, mentre gli altri rimangono fermi. L'hardware comunque può trasferire i thread che sono rimasti fermi in altri warp.
+
 \begin{figure}[h]
     \centering
-    \def\stackalignment{r}
-    \stackunder
-        {\includegraphics[width=6.5cm]{warp-branch.png}}
-        {\scriptsize Fonte: \url{https://www.researchgate.net/figure/Warp-divergence-due-to-if-else-statements_fig15_317608134}}
+    \includegraphics[width=6.5cm]{warp-branch.png}
+    \source{\url{https://www.researchgate.net/figure/Warp-divergence-due-to-if-else-statements_fig15_317608134}}
     \caption{Esecuzione di un thread in caso di biforcazione}
     \label{img:warp-branch}
 \end{figure}
-
-Nel caso ci sia una biforcazione nel flusso di controllo (causato, ad esempio, da costrutti \verb|if-else|), la condizione viene calcolata per ogni thread, dopodichè vengono eseguiti i thread per cui è stata verificata, mentre gli altri rimangono fermi. L'hardware comunque può trasferire i thread che sono rimasti fermi in altri warp.
-
-\newpage
 
 La memoria in CUDA, riassunta nella figura \ref{img:memory-hierarchy}, è suddivisa in più tipi:
 
@@ -255,10 +250,8 @@ La memoria in CUDA, riassunta nella figura \ref{img:memory-hierarchy}, è suddiv
 
 \begin{figure}[h]
     \centering
-    \def\stackalignment{r}
-    \stackunder
-        {\includegraphics[width=8cm]{cuda-memory-hierarchy.jpg}}
-        {\scriptsize Fonte: \url{https://www.researchgate.net/figure/Memory-model-CUDA-memory-hierarchy_fig2_51529494}}
+    \includegraphics[width=8cm]{cuda-memory-hierarchy.jpg}
+    \source{\url{https://www.researchgate.net/figure/Memory-model-CUDA-memory-hierarchy_fig2_51529494}}
     \caption{La struttura della memoria in CUDA.}
     \label{img:memory-hierarchy}
 \end{figure}
@@ -267,10 +260,8 @@ In CUDA va prestata particolare attenzione all'accesso della memoria. Infatti, q
 
 \begin{figure}
     \centering
-    \def\stackalignment{r}
-    \stackunder
-        {\includegraphics[width=5cm]{aos.jpg}}
-        {\scriptsize Fonte: \url{https://asc.ziti.uni-heidelberg.de/en/node/18}}
+    \includegraphics[width=5cm]{aos.jpg}
+    \source{\url{https://asc.ziti.uni-heidelberg.de/en/node/18}}
     \caption{AoS e SoA a confronto}
     \label{img:aos}
 \end{figure}
@@ -305,33 +296,29 @@ L'estensione più importante in CUDA riguarda il modo in cui si chiamano le funz
 
 La visione artificiale è il campo dell'informatica che si occupa di analizzare ed interpretare le immagini per ottenere un modello approssimato del mondo reale. In sostanza, si occupa di capire ed automatizzare compiti che il sistema di visione umano riesce a fare.
 
-La Stereo Vision è una sottobranca della visione artificiale che si occupa di ottenere informazioni spaziali utilizzando due immagini (da qui viene il termine \textit{stereo}).
+La Stereo Vision è una sottobranca della visione artificiale che si occupa di ottenere informazioni spaziali utilizzando due immagini (da qui viene il termine \textit{stereo}) \cite{stereovision}.
 
 Gli uomini posseggono due occhi frontali che vedono il mondo esterno da due posizioni differenti: queste due posizioni vengono combinate, usando le piccole differenze presenti tra le due per recuperare le informazioni in 3D sull'ambiente esterno. L'idea di base della Stereo Vision è la simulazione di questo sistema: per far ciò si utilizzano due fotocamere, disposte orizzontalmente l'una all'altra, in modo che fungano come da occhi umani che guardano la scena di cui si è interessati. Le due immagini che si ottengono dalle fotocamere sono chiamate \textit{Stereo Pair}.
 
 \begin{figure}[h]
     \centering
-    \def\stackalignment{r}
-    \stackunder
-        {\includegraphics[width=\textwidth]{tsukuba-stereo-pair.png}}
-        {\scriptsize Fonte: \url{https://www.researchgate.net/figure/Tsukuba-stereo-pair_fig1_278622997}}
+    \includegraphics[width=\textwidth]{tsukuba-stereo-pair.png}
+    \source{\url{https://www.researchgate.net/figure/Tsukuba-stereo-pair_fig1_278622997}}
     \caption{Un esempio di \textit{stereo pair}.}
     \label{img:stereo_pair}
 \end{figure}
 
-Un problema importante nella Stereo Vision è come inferire la profondità degli oggetti della scena usando le due immagini prese dalle fotocamere. È qui che entrano in gioco gli algoritmi di \textit{Stereo Matching}: durante la fase di analisi delle due immagini, si cerca un \textit{match} tra un oggetto di un immagine e la posizione dell'oggetto nell'altra immagine: la differenza della sua posizione nelle due immagini determina la posizione finale dell'oggetto. Le informazioni che si ottengono sulla profondità degli oggetti vengono chiamate nel loro complesso \textit{mappa di disparità}.
+Un problema importante nella Stereo Vision è come inferire la profondità degli oggetti della scena usando le due immagini prese dalle fotocamere \cite{imagevideohandbook}. È qui che entrano in gioco gli algoritmi di \textit{Stereo Matching}: durante la fase di analisi delle due immagini, si cerca un \textit{match} tra un oggetto di un immagine e la posizione dell'oggetto nell'altra immagine: la differenza della sua posizione nelle due immagini determina la posizione finale dell'oggetto. Le informazioni che si ottengono sulla profondità degli oggetti vengono chiamate nel loro complesso \textit{mappa di disparità}.
 
 \begin{figure}[h]
     \centering
-    \def\stackalignment{r}
-    \stackunder
-        {\includegraphics[width=\textwidth]{disparity_map.jpg}}
-        {\scriptsize Fonte: \url{https://docs.opencv.org/4.x/dd/d53/tutorial_py_depthmap.html}}
+    \includegraphics[width=\textwidth]{disparity_map.jpg}
+    \source{\url{https://docs.opencv.org/4.x/dd/d53/tutorial_py_depthmap.html}}
     \caption[Esempio di mappa di disparità.]{Esempio di mappa di disparità. Le regioni più chiare indicano oggetti più vicini, mentre quelle più scure indicano oggetti più lontani.}
     \label{img:disparity_map}
 \end{figure}
 
-\section{Fasi di analisi}
+\section{Le fasi di analisi delle immagini}
 
 Per estrarre le informazioni 3D, la maggior parte degli algoritmi di Stereo Vision seguono i seguenti passi:
 
@@ -346,7 +333,7 @@ Per estrarre le informazioni 3D, la maggior parte degli algoritmi di Stereo Visi
 
 L'approccio classico per lo stereo matching è: per ogni pixel $p = (x, y)$ nell'immagine di partenza, si trova la linea corrispondente nell'immagine di destinazione, poi si trova il pixel $p'$ più somigliante nella linea. Nei casi più semplici, la linea corrispondente è la coordinata $y$ del punto $p$.
 
-Il calcolo della \textbf{somiglianza} differisce in ogni algoritmo, ma in generale viene calcolata utilizzando la regione intorno al punto. Si definiscono due \textit{finestre} di grandezza $NxN$: $W (x, y)$, centrata nel punto $p$, e $W'$, che viene fatta scorrere in orizzontale lungo la linea. Ad ogni scorrimento corrisponde un nuovo punto $p'$. Per ogni punto $p'$ trovato, si calcola una metrica particolare derivata dall'intorno. Tre metriche popolari sono la \textit{Correlazione Normalizzata}, la \textit{Sum of Squared Differences} e la \textit{Sum of Absolute Differences}.
+Il calcolo della \textbf{somiglianza} differisce in ogni algoritmo, ma in generale viene calcolata utilizzando la regione intorno al punto. Si definiscono due \textit{finestre} di grandezza $NxN$: $W (x, y)$, centrata nel punto $p$, e $W'$, che viene fatta scorrere in orizzontale lungo la linea. Ad ogni scorrimento corrisponde un nuovo punto $p'$. Per ogni punto $p'$ trovato, si calcola una metrica particolare derivata dall'intorno. Tre metriche popolari sono la \textit{Correlazione Normalizzata}, la \textit{Sum of Squared Differences} e la \textit{Sum of Absolute Differences} \cite{stereomatchingalgos}.
 
 Un approccio alternativo consiste nell'\textit{edge matching}. In questo caso per le due immagini si trovano i contorni, poi si fa il \textit{match} dei contorni in modo simile al metodo delle finestre: in questo caso si calcola la somiglianza tra contorni.
 
@@ -370,15 +357,13 @@ L'algoritmo di stereo matching che presentiamo fu descritto e implementato per l
 
 \begin{figure}[h]
     \centering
-    \def\stackalignment{r}
-    \stackunder
-        {\includegraphics[width=\textwidth]{connection-machine.jpg}}
-        {\scriptsize Fonte: \url{https://commons.wikimedia.org/wiki/File:Computer_Museum_of_America_(51).jpg}}
+    \includegraphics[width=7cm]{connection-machine.jpg}
+    \source{\url{https://commons.wikimedia.org/wiki/File:Computer_Museum_of_America_(51).jpg}}
     \caption{Il design esterno della Connection Machine CM-2.}
     \label{img:connection_machine}
 \end{figure}
 
-La \textit{Connection Machine CM-2} fa parte di una serie di supercomputer sviluppati dall'azienda Thinking Machines nei primo anni 80. La macchina era un supercomputer parallelo basata sul parallelismo a livello di dati (\textit{data level parallelism}), che consiste nell'eseguire un'operazione su più dati in parallelo, in contrasto con il parallelismo a livello di istruzioni, che consiste nell'eseguire in parallelo le istruzioni che possono essere eseguite indipendentemente. In pratica, ciò significa che la Connection Machine operava come una gigantesca macchina SIMD (Single Instruction Multiple Data).
+La \textit{Connection Machine CM-2} fa parte di una serie di supercomputer sviluppati dall'azienda Thinking Machines nei primo anni 80. La macchina era un supercomputer parallelo basata sul parallelismo a livello di dati (\textit{data level parallelism}), che consiste nell'eseguire un'operazione su più dati in parallelo, in contrasto con il parallelismo a livello di istruzioni, che consiste nell'eseguire in parallelo le istruzioni che possono essere eseguite indipendentemente \cite{originalalgo}. In pratica, ciò significa che la Connection Machine operava come una gigantesca macchina SIMD (Single Instruction Multiple Data).
 
 La macchina, per eseguire i programma, utilizzava una parte di front-end, dove veniva memorizzato il programma e dove veniva eseguito il codice seriale. Quando un programma incontrava istruzioni parallele (istruzioni che operava sui dati in modo parallelo), le passava all'hardware della Connection Machine: questo era composto da 65535 processori, ognuno con 4096 bit di memoria.
 
@@ -386,9 +371,11 @@ Ogni processore operava su un solo elemento: se c'erano meno di 65535 elementi, 
 
 \section{*Lisp}
 
-Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John McCarthy. Si tratta di un linguaggio basato sui paradigmi imperativo e funzionale, con una sintassi molto unica. Il seguente codice presenta un esempio del linguaggio; si tratta di una funzione che trova se un elemento esiste in un array:
+Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John McCarthy. Si tratta di un linguaggio basato sui paradigmi imperativo e funzionale, con una sintassi molto unica \cite{lispwp}. Il seguente codice presenta un esempio del linguaggio; si tratta di una funzione che trova se un elemento esiste in un array:
 
-\begin{lstlisting}[caption=Esempio di codice Lisp. Questa funzione implementa la ricerca nell'array in maniera ricorsiva in concordanza con il paradigma funzionale.]
+\newpage
+
+\begin{lstlisting}[caption={Esempio di codice Lisp. Questa funzione implementa la ricerca nell'array in maniera ricorsiva, in concordanza con il paradigma funzionale.}]
 (defun contains-element (arr i element)
   (if (= i (array-dimension arr 0))
     0
@@ -397,9 +384,9 @@ Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John 
       (contains-element arr (+ i 1) element))))
 \end{lstlisting}
 
-Il Lisp ha molti dialetti e *Lisp è uno di questi (in particolare, è un dialetto del Common Lisp). *Lisp, come linguaggio pensato per essere usato nella Connection Machine, aggiunge nuove caratteristiche per la programmazione parallela: ad esempio, molti costrutti come \verb|if| e \verb|=| hanno una versione parallela che agiscono su tutti i dati in contemporanea. In particolare, introduce una struttura dati, la \textit{pvar}, che rappresenta una collezione di valori memorizzati uno per ogni processore. Il seguente codice mostra un esempio di codice *Lisp, che è una traduzione della funzione sopra:
+Il Lisp ha molti dialetti e *Lisp è uno di questi (in particolare, è un dialetto del Common Lisp). *Lisp, come linguaggio pensato per essere usato nella Connection Machine, aggiunge nuove caratteristiche per la programmazione parallela: ad esempio, molti costrutti come \verb|if| e \verb|=| hanno una versione parallela che agiscono su tutti i dati in contemporanea. In particolare, introduce una struttura dati, la \textit{pvar}, che rappresenta una collezione di valori memorizzati uno per ogni processore \cite{starlisp}. Il seguente codice mostra un esempio di codice *Lisp, che è una traduzione della funzione sopra:
 
-\begin{lstlisting}[caption=Esempio di codice *Lisp. Questa versione della funzione implementa la ricerca in parallelo su tutti gli elementi dell'array.]
+\begin{lstlisting}[caption={Esempio di codice *Lisp. Questa versione della funzione implementa la ricerca in parallelo su tutti gli elementi dell'array.}]
 (*defun contains-element (pvar element)
   (if!! (=!! pvar element)
         (!! 1)
@@ -408,7 +395,7 @@ Il Lisp ha molti dialetti e *Lisp è uno di questi (in particolare, è un dialet
 
 \chapter{Descrizione dell'algoritmo}
 
-\LaTeX
+
 
 \chapter{Progettazione}
 
