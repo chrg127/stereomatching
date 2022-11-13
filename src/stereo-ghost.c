@@ -8,55 +8,56 @@
 #define DEFAULT_SQUARE_WIDTH 5
 #define DEFAULT_TIMES 32
 #define DEFAULT_LINES 10
-
+#define GHOST_SIZE_MATCHES 5
+#define GHOST_SIZE_EDGES NUM_SHIFTS
 
 
 // step 1
 
-int find_edges_left_right(double *brightness, int width, int height, int x, int y, double threshold)
+int find_edges_left_right(double *brightness, int width, int x, int y, double threshold)
 {
-    double avg_left  = (brightness[idx(x-1, y-1, width, height)]
-                     +  brightness[idx(x-1, y  , width, height)]
-                     +  brightness[idx(x-1, y+1, width, height)]) / 3.0;
-    double avg_right = (brightness[idx(x+1, y-1, width, height)]
-                     +  brightness[idx(x+1, y  , width, height)]
-                     +  brightness[idx(x+1, y+1, width, height)]) / 3.0;
+    double avg_left  = (brightness[IGX(x-1, y-1, width, 1)]
+                     +  brightness[IGX(x-1, y  , width, 1)]
+                     +  brightness[IGX(x-1, y+1, width, 1)]) / 3.0;
+    double avg_right = (brightness[IGX(x+1, y-1, width, 1)]
+                     +  brightness[IGX(x+1, y  , width, 1)]
+                     +  brightness[IGX(x+1, y+1, width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-int find_edges_top_bottom(double *brightness, int width, int height, int x, int y, double threshold)
+int find_edges_top_bottom(double *brightness, int width, int x, int y, double threshold)
 {
-    double avg_left  = (brightness[idx(x-1, y-1, width, height)]
-                     +  brightness[idx(x  , y-1, width, height)]
-                     +  brightness[idx(x+1, y-1, width, height)]) / 3.0;
-    double avg_right = (brightness[idx(x-1, y+1, width, height)]
-                     +  brightness[idx(x  , y+1, width, height)]
-                     +  brightness[idx(x+1, y+1, width, height)]) / 3.0;
+    double avg_left  = (brightness[IGX(x-1, y-1, width, 1)]
+                     +  brightness[IGX(x  , y-1, width, 1)]
+                     +  brightness[IGX(x+1, y-1, width, 1)]) / 3.0;
+    double avg_right = (brightness[IGX(x-1, y+1, width, 1)]
+                     +  brightness[IGX(x  , y+1, width, 1)]
+                     +  brightness[IGX(x+1, y+1, width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-int find_edges_upleft_downright(double *brightness, int height, int width, int x, int y, double threshold)
+int find_edges_upleft_downright(double *brightness, int width, int x, int y, double threshold)
 {
-    double avg_left  = (brightness[idx(x-1, y-1, width, height)]
-                     +  brightness[idx(x  , y-1, width, height)]
-                     +  brightness[idx(x-1, y  , width, height)]) / 3.0;
-    double avg_right = (brightness[idx(x+1, y  , width, height)]
-                     +  brightness[idx(x  , y+1, width, height)]
-                     +  brightness[idx(x+1, y+1, width, height)]) / 3.0;
+    double avg_left  = (brightness[IGX(x-1, y-1, width, 1)]
+                     +  brightness[IGX(x  , y-1, width, 1)]
+                     +  brightness[IGX(x-1, y  , width, 1)]) / 3.0;
+    double avg_right = (brightness[IGX(x+1, y  , width, 1)]
+                     +  brightness[IGX(x  , y+1, width, 1)]
+                     +  brightness[IGX(x+1, y+1, width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-int find_edges_downleft_upright(double *brightness, int height, int width, int x, int y, double threshold)
+int find_edges_downleft_upright(double *brightness, int width, int x, int y, double threshold)
 {
-    double avg_left  = (brightness[idx(x-1, y+1, width, height)]
-                     +  brightness[idx(x  , y+1, width, height)]
-                     +  brightness[idx(x-1, y  , width, height)]) / 3.0;
-    double avg_right = (brightness[idx(x  , y-1, width, height)]
-                     +  brightness[idx(x+1, y-1, width, height)]
-                     +  brightness[idx(x+1, y  , width, height)]) / 3.0;
+    double avg_left  = (brightness[IGX(x-1, y+1, width, 1)]
+                     +  brightness[IGX(x  , y+1, width, 1)]
+                     +  brightness[IGX(x-1, y  , width, 1)]) / 3.0;
+    double avg_right = (brightness[IGX(x  , y-1, width, 1)]
+                     +  brightness[IGX(x+1, y-1, width, 1)]
+                     +  brightness[IGX(x+1, y  , width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
@@ -65,11 +66,11 @@ void find_all_edges(double *brightness, int width, int height, double threshold,
 {
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
-            edges[IDX(x, y, width)] =
-                find_edges_left_right      (brightness, width, height, x, y, threshold)
-             || find_edges_top_bottom      (brightness, width, height, x, y, threshold)
-             || find_edges_upleft_downright(brightness, width, height, x, y, threshold)
-             || find_edges_downleft_upright(brightness, width, height, x, y, threshold);
+            edges[IGX(x, y, width, GHOST_SIZE_EDGES)] =
+                find_edges_left_right      (brightness, width, x, y, threshold)
+             || find_edges_top_bottom      (brightness, width, x, y, threshold)
+             || find_edges_upleft_downright(brightness, width, x, y, threshold)
+             || find_edges_downleft_upright(brightness, width, x, y, threshold);
         }
     }
 }
@@ -84,21 +85,21 @@ u8 *matches[NUM_SHIFTS];
 void allocate_matches(int width, int height)
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
-        matches[i] = ALLOCATE(u8, width * height);
+        matches[i] = ghost_alloc_u8(width, height, GHOST_SIZE_MATCHES, 0);
 }
 
 void write_matches(int width, int height)
 {
 #ifndef NO_WRITES
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(matches[i], width, height, 0, IMTYPE_BINARY, "matches", i);
+        write_image(matches[i], width, height, GHOST_SIZE_MATCHES, IMTYPE_BINARY, "matches", i);
 #endif
 }
 
-void free_matches()
+void free_matches(int width)
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
-        free(matches[i]);
+        GHOST_FREE(u8, matches[i], width, GHOST_SIZE_MATCHES);
 }
 
 void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
@@ -106,10 +107,10 @@ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int index = IDX(x,   y, width),
-                    shift = idx(x+i, y, width, height);
+                matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] =
+                    left_edges [IGX(x,   y, width, GHOST_SIZE_EDGES)]
+                 == right_edges[IGX(x+i, y, width, GHOST_SIZE_EDGES)];
                 // ^ the +i accomplishes the sliding process
-                matches[i][index] = left_edges[index] == right_edges[shift];
             }
         }
     }
@@ -150,9 +151,9 @@ void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width,
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int cur = IDX(x, y, width);
-                    int rel = idx(x + sx - half,
+                    int rel = IGX(x + sx - half,
                                   y + sy - half,
-                                  width, height);
+                                  width, GHOST_SIZE_MATCHES);
                     total[cur] += (i32) pixels[rel];
                 }
             }
@@ -166,7 +167,7 @@ void record_score(int i, i32 *sum, int width, int height)
         for (int x = 0; x < width; x++) {
             int index = IDX(x, y, width);
             // record a score whenever there was a match-up
-            if (matches[i][index] == 1)
+            if (matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] == 1)
                 scores[i][index] = sum[index];
         }
     }
@@ -274,8 +275,8 @@ typedef struct AlgorithmParams {
 
 void algorithm(double *first, double *second, int width, int height, AlgorithmParams params)
 {
-    u8 *first_edges  = ALLOCATE(u8, width * height),
-       *second_edges = ALLOCATE(u8, width * height);
+    u8 *first_edges  = ghost_alloc_u8(width, height, GHOST_SIZE_EDGES, 0),
+       *second_edges = ghost_alloc_u8(width, height, GHOST_SIZE_EDGES, 0);
     i32 *buf         = ALLOCATE(i32, width * height),
         *web         = ALLOCATE(i32, width * height);
     u8 *out          = ALLOCATE(u8, width * height);
@@ -287,8 +288,8 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // first step: find edges in both images
     find_all_edges(first,  width, height, params.threshold, first_edges);
     find_all_edges(second, width, height, params.threshold, second_edges);
-    write_image(first_edges,  width, height, 0, IMTYPE_BINARY, "edges", 1);
-    write_image(second_edges, width, height, 0, IMTYPE_BINARY, "edges", 2);
+    write_image(first_edges,  width, height, GHOST_SIZE_EDGES, IMTYPE_BINARY, "edges", 1);
+    write_image(second_edges, width, height, GHOST_SIZE_EDGES, IMTYPE_BINARY, "edges", 2);
 
     // second step: match edges between images
     fillup_matches(first_edges, second_edges, width, height);
@@ -312,12 +313,12 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     double elapsed = t2 - t1;
     printf("width = %d, height = %d, t1 = %f, t2 = %f, elapsed = %f\n", width, height, t1, t2, elapsed);
 
-    free(first_edges);
-    free(second_edges);
+    GHOST_FREE(u8, first_edges,  width, GHOST_SIZE_EDGES);
+    GHOST_FREE(u8, second_edges, width, GHOST_SIZE_EDGES);
     free(buf);
     free(web);
     free(out);
-    free_matches();
+    free_matches(width);
     free_scores();
 }
 
@@ -373,8 +374,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    algorithm(first.data, second.data, first.width, first.height, params);
+    double *first_ghost  = ghost_add_double(first.data,  first.width,  first.height,  1, 128.0);
+    double *second_ghost = ghost_add_double(second.data, second.width, second.height, 1, 128.0);
 
+    algorithm(first_ghost, second_ghost, first.width, first.height, params);
+
+    GHOST_FREE(double, first_ghost,  first.width, 1);
+    GHOST_FREE(double, second_ghost, first.width, 1);
     free(first.data);
     free(second.data);
     return 0;

@@ -8,55 +8,57 @@
 #define DEFAULT_SQUARE_WIDTH 5
 #define DEFAULT_TIMES 32
 #define DEFAULT_LINES 10
+#define GHOST_SIZE_MATCHES 5
+#define GHOST_SIZE_EDGES NUM_SHIFTS
 
 
 
 // step 1
 
-__device__ int find_edges_left_right(double *brightness, int width, int height, int x, int y, double threshold)
+__device__ int find_edges_left_right(double *brightness, int width, int x, int y, double threshold)
 {
-    double avg_left  = (brightness[idx(x-1, y-1, width, height)]
-                     +  brightness[idx(x-1, y  , width, height)]
-                     +  brightness[idx(x-1, y+1, width, height)]) / 3.0;
-    double avg_right = (brightness[idx(x+1, y-1, width, height)]
-                     +  brightness[idx(x+1, y  , width, height)]
-                     +  brightness[idx(x+1, y+1, width, height)]) / 3.0;
+    double avg_left  = (brightness[IGX(x-1, y-1, width, 1)]
+                     +  brightness[IGX(x-1, y  , width, 1)]
+                     +  brightness[IGX(x-1, y+1, width, 1)]) / 3.0;
+    double avg_right = (brightness[IGX(x+1, y-1, width, 1)]
+                     +  brightness[IGX(x+1, y  , width, 1)]
+                     +  brightness[IGX(x+1, y+1, width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-__device__ int find_edges_top_bottom(double *brightness, int width, int height, int x, int y, double threshold)
+__device__ int find_edges_top_bottom(double *brightness, int width, int x, int y, double threshold)
 {
-    double avg_left  = (brightness[idx(x-1, y-1, width, height)]
-                     +  brightness[idx(x  , y-1, width, height)]
-                     +  brightness[idx(x+1, y-1, width, height)]) / 3.0;
-    double avg_right = (brightness[idx(x-1, y+1, width, height)]
-                     +  brightness[idx(x  , y+1, width, height)]
-                     +  brightness[idx(x+1, y+1, width, height)]) / 3.0;
+    double avg_left  = (brightness[IGX(x-1, y-1, width, 1)]
+                     +  brightness[IGX(x  , y-1, width, 1)]
+                     +  brightness[IGX(x+1, y-1, width, 1)]) / 3.0;
+    double avg_right = (brightness[IGX(x-1, y+1, width, 1)]
+                     +  brightness[IGX(x  , y+1, width, 1)]
+                     +  brightness[IGX(x+1, y+1, width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-__device__ int find_edges_upleft_downright(double *brightness, int width, int height, int x, int y, double threshold)
+__device__ int find_edges_upleft_downright(double *brightness, int width, int x, int y, double threshold)
 {
-    double avg_left  = (brightness[idx(x-1, y-1, width, height)]
-                     +  brightness[idx(x  , y-1, width, height)]
-                     +  brightness[idx(x-1, y  , width, height)]) / 3.0;
-    double avg_right = (brightness[idx(x+1, y  , width, height)]
-                     +  brightness[idx(x  , y+1, width, height)]
-                     +  brightness[idx(x+1, y+1, width, height)]) / 3.0;
+    double avg_left  = (brightness[IGX(x-1, y-1, width, 1)]
+                     +  brightness[IGX(x  , y-1, width, 1)]
+                     +  brightness[IGX(x-1, y  , width, 1)]) / 3.0;
+    double avg_right = (brightness[IGX(x+1, y  , width, 1)]
+                     +  brightness[IGX(x  , y+1, width, 1)]
+                     +  brightness[IGX(x+1, y+1, width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-__device__ int find_edges_downleft_upright(double *brightness, int width, int height, int x, int y, double threshold)
+__device__ int find_edges_downleft_upright(double *brightness, int width, int x, int y, double threshold)
 {
-    double avg_left  = (brightness[idx(x-1, y+1, width, height)]
-                     +  brightness[idx(x  , y+1, width, height)]
-                     +  brightness[idx(x-1, y  , width, height)]) / 3.0;
-    double avg_right = (brightness[idx(x  , y-1, width, height)]
-                     +  brightness[idx(x+1, y-1, width, height)]
-                     +  brightness[idx(x+1, y  , width, height)]) / 3.0;
+    double avg_left  = (brightness[IGX(x-1, y+1, width, 1)]
+                     +  brightness[IGX(x  , y+1, width, 1)]
+                     +  brightness[IGX(x-1, y  , width, 1)]) / 3.0;
+    double avg_right = (brightness[IGX(x  , y-1, width, 1)]
+                     +  brightness[IGX(x+1, y-1, width, 1)]
+                     +  brightness[IGX(x+1, y  , width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
@@ -65,11 +67,11 @@ __global__ void find_all_edges(double *brightness, int width, int height, double
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
-    edges[idx(x, y, width, height)] =
-        find_edges_left_right      (brightness, width, height, x, y, threshold)
-     || find_edges_top_bottom      (brightness, width, height, x, y, threshold)
-     || find_edges_upleft_downright(brightness, width, height, x, y, threshold)
-     || find_edges_downleft_upright(brightness, width, height, x, y, threshold);
+    edges[IGX(x, y, width, GHOST_SIZE_EDGES)] =
+        find_edges_left_right      (brightness, width, x, y, threshold)
+     || find_edges_top_bottom      (brightness, width, x, y, threshold)
+     || find_edges_upleft_downright(brightness, width, x, y, threshold)
+     || find_edges_downleft_upright(brightness, width, x, y, threshold);
 }
 
 
@@ -83,7 +85,7 @@ void allocate_matches(int width, int height)
 {
     u8 *tmp[NUM_SHIFTS];
     for (int i = 0; i < NUM_SHIFTS; i++)
-        tmp[i] = ALLOCATE_GPU(u8, width * height);
+        tmp[i] = ghost_alloc_gpu_u8(width, height, GHOST_SIZE_MATCHES, 0);
     checkCudaErrors(cudaMemcpyToSymbol(matches, tmp, sizeof(tmp)));
 }
 
@@ -93,28 +95,27 @@ void write_matches(int width, int height)
     u8 *tmp[NUM_SHIFTS];
     checkCudaErrors(cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp)));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image_from_gpu(tmp[i], width, height, 0, IMTYPE_BINARY, "matches", i);
+        write_image_from_gpu(tmp[i], width, height, GHOST_SIZE_MATCHES, IMTYPE_BINARY, "matches", i);
 #endif
 }
 
-void free_matches()
+void free_matches(int width)
 {
     u8 *tmp[NUM_SHIFTS];
     checkCudaErrors(cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp)));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        checkCudaErrors(cudaFree(tmp[i]));
+        GHOST_FREE_GPU(u8, tmp[i], width, GHOST_SIZE_MATCHES);
 }
 
 __global__ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
-    int index = IDX(x, y, width);
-    for (int i = 0; i < NUM_SHIFTS; i++) {
-        int shift = idx(x+i, y, width, height);
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] =
+            left_edges [IGX(x,   y, width, GHOST_SIZE_EDGES)]
+         == right_edges[IGX(x+i, y, width, GHOST_SIZE_EDGES)];
         // ^ the +i accomplishes the sliding process
-        matches[i][index] = left_edges[index] == right_edges[shift];
-    }
 }
 
 
@@ -159,7 +160,9 @@ __global__ void addup_pixels_in_square(int i, int width, int height, int square_
     int half = square_width / 2;
     for (int sy = 0; sy < square_width; sy++) {
         for (int sx = 0; sx < square_width; sx++) {
-            int rel = idx(x + sx - half, y + sy - half, width, height);
+            int rel = IGX(x + sx - half,
+                          y + sy - half,
+                          width, GHOST_SIZE_MATCHES);
             total[cur] += (i32) pixels[rel];
         }
     }
@@ -171,7 +174,7 @@ __global__ void record_score(int i, i32 *sum, int width, int height)
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int index = IDX(x, y, width);
     // record a score whenever there was a match-up
-    if (matches[i][index] == 1)
+    if (matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] == 1)
         scores[i][index] = sum[index];
 }
 
@@ -279,11 +282,11 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
     const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
 
-    u8 *first_edges  = ALLOCATE_GPU(u8, width * height),
-       *second_edges = ALLOCATE_GPU(u8, width * height);
-    i32 *buf = ALLOCATE_GPU(i32, width * height),
-        *web = ALLOCATE_GPU(i32, width * height);
-    u8 *out = ALLOCATE_GPU(u8, width * height);
+    u8 *first_edges  = ghost_alloc_gpu_u8(width, height, 30, 0),
+       *second_edges = ghost_alloc_gpu_u8(width, height, 30, 0);
+    i32 *buf         = ALLOCATE_GPU(i32, width * height),
+        *web         = ALLOCATE_GPU(i32, width * height);
+    u8 *out          = ALLOCATE_GPU(u8, width * height);
     allocate_matches(width, height);
     allocate_scores(width, height);
 
@@ -292,8 +295,8 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // first step: find edges in both images
     find_all_edges<<<num_blocks, BLOCK_DIM_2D>>>(first,  width, height, params.threshold, first_edges);
     find_all_edges<<<num_blocks, BLOCK_DIM_2D>>>(second, width, height, params.threshold, second_edges);
-    write_image_from_gpu(first_edges,  width, height, 0, IMTYPE_BINARY, "edges", 1);
-    write_image_from_gpu(second_edges, width, height, 0, IMTYPE_BINARY, "edges", 2);
+    write_image_from_gpu(first_edges,  width, height, 30, IMTYPE_BINARY, "edges", 1);
+    write_image_from_gpu(second_edges, width, height, 30, IMTYPE_BINARY, "edges", 2);
 
     // second step: match edges between images
     fillup_matches<<<num_blocks, BLOCK_DIM_2D>>>(first_edges, second_edges, width, height);
@@ -317,12 +320,12 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     double elapsed = t2 - t1;
     printf("width = %d, height = %d, t1 = %f, t2 = %f, elapsed = %f\n", width, height, t1, t2, elapsed);
 
-    checkCudaErrors(cudaFree(first_edges));
-    checkCudaErrors(cudaFree(second_edges));
+    GHOST_FREE_GPU(u8, first_edges,  width, 30);
+    GHOST_FREE_GPU(u8, second_edges, width, 30);
     checkCudaErrors(cudaFree(buf));
     checkCudaErrors(cudaFree(web));
     checkCudaErrors(cudaFree(out));
-    free_matches();
+    free_matches(width);
     free_scores();
 }
 
@@ -391,4 +394,3 @@ int main(int argc, char *argv[])
     free(second.data);
     return 0;
 }
-

@@ -47,6 +47,7 @@ static int get_image_value(void *p, int x, int y, int width, int ghost_size, Ima
 // writes a grayscale image.
 void write_image(void *data, int width, int height, int ghost_size, ImageType type, const char *name, int number)
 {
+#ifndef NO_WRITES
     char filename[1000];
     snprintf(filename, sizeof(filename), "%s%d.ppm", name, number);
     FILE *f = fopen(filename, "w");
@@ -59,4 +60,5 @@ void write_image(void *data, int width, int height, int ghost_size, ImageType ty
             fprintf(f, "%d %d %d\n", v, v, v);
         }
     }
+#endif
 }
