@@ -9,25 +9,26 @@
 ; the image is generally bright.
 
 (*defun find-edges-between-left-and-right!! (brightness-pvar threshold)
-  (*let* ((average-brightness-on-the-left
-            (/!! (+!! (pref-grid-relative!! brightness-pvar (!! -1) (!! -1))
-                      (pref-grid-relative!! brightness-pvar (!! -1) (!!  0))
-                      (pref-grid-relative!! brightness-pvar (!! -1) (!!  1)))
-                 (!! 3.0)))
-          (average-brightness-on-the-right
-            (/!! (+!! (pref-grid-relative!! brightness-pvar (!!  1) (!! -1))
-                      (pref-grid-relative!! brightness-pvar (!!  1) (!!  0))
-                      (pref-grid-relative!! brightness-pvar (!!  1) (!!  1)))
-                 (!! 3.0)))
-          (average-brightness-overall
-            (/!! (+!! average-brightness-on-the-left
-                      average-brightness-on-the-right)
-                 (!! 2.0))))
-         (if!! (>!! (absolute-value!! (-!! average-brightness-on-the-left
-                                           average-brightness-on-the-right))
-                    (*!! (!! threshold) average-brightness-overall))
-               (!! 1)
-               (!! 0))))
+  (*let*
+    ((average-brightness-on-the-left
+       (/!! (+!! (pref-grid-relative!! brightness-pvar (!! -1) (!! -1))
+                 (pref-grid-relative!! brightness-pvar (!! -1) (!!  0))
+                 (pref-grid-relative!! brightness-pvar (!! -1) (!!  1)))
+            (!! 3.0)))
+     (average-brightness-on-the-right
+       (/!! (+!! (pref-grid-relative!! brightness-pvar (!!  1) (!! -1))
+                 (pref-grid-relative!! brightness-pvar (!!  1) (!!  0))
+                 (pref-grid-relative!! brightness-pvar (!!  1) (!!  1)))
+            (!! 3.0)))
+     (average-brightness-overall
+       (/!! (+!! average-brightness-on-the-left
+                 average-brightness-on-the-right)
+            (!! 2.0))))
+    (if!! (>!! (absolute-value!! (-!! average-brightness-on-the-left
+                                      average-brightness-on-the-right))
+               (*!! (!! threshold) average-brightness-overall))
+          (!! 1)
+          (!! 0))))
 
 ; Since this program compares regions on the left and right sides of a pixel, it works only
 ; for edges that are more or less vertical. It is easy to write a program that finds horizontal
@@ -37,10 +38,14 @@
 ; the following way:
 
 (*defun find-all-edges!! (brightness-pvar threshold)
-  (if!! (or!! (=! (!! 1) (find-edges-between-left-and-right!!              brightness-pvar threshold))
-              (=! (!! 1) (find-edges-between-above-and-below!!             brightness-pvar threshold))
-              (=! (!! 1) (find-edges-between-upper-left-and-lower-right!!  brightness-pvar threshold))
-              (=! (!! 1) (find-edges-between-lower-left-and-upper-right!!  brightness-pvar threshold)))
+  (if!! (or!! (=! (!! 1) (find-edges-between-left-and-right!!
+                           brightness-pvar threshold))
+              (=! (!! 1) (find-edges-between-above-and-below!!
+                           brightness-pvar threshold))
+              (=! (!! 1) (find-edges-between-upper-left-and-lower-right!!
+                           brightness-pvar threshold))
+              (=! (!! 1) (find-edges-between-lower-left-and-upper-right!!
+                           brightness-pvar threshold)))
         (!! 1)
         (!! 0)))
 
@@ -135,12 +140,21 @@
       (*if not-fixed
         (*set web-of-known-elevations
               (/! (+!!
-                    (pref-grid-relative!! web-of-known-elevations (!!  1) (!!  0))  ; neighbor to the right
-                    (pref-grid-relative!! web-of-known-elevations (!!  0) (!!  1))  ; neighbor above
-                    (pref-grid-relative!! web-of-known-elevations (!! -1) (!!  0))  ; neighbor to the left
-                    (pref-grid-relative!! web-of-known-elevations (!!  0) (!! -1))) ; neighbot below
+                    (pref-grid-relative!!
+                      web-of-known-elevations
+                      (!!  1) (!!  0))  ; neighbor to the right
+                    (pref-grid-relative!!
+                      web-of-known-elevations
+                      (!!  0) (!!  1))  ; neighbor above
+                    (pref-grid-relative!!
+                      web-of-known-elevations
+                      (!! -1) (!!  0))  ; neighbor to the left
+                    (pref-grid-relative!!
+                      web-of-known-elevations
+                      (!!  0) (!! -1))) ; neighbot below
                   (!! 4))))))
-  web-of-known-elevations)  ;;; this is now a more or less smooth surface.
+  ;;; this is now a more or less smooth surface.
+  web-of-known-elevations)
 
 (defun draw-contour-map (number-of-contour-lines pvar-of-smooth-continuous-elevations)
   ;; the idea is to divide the whole range of elevations into a number of intervals,

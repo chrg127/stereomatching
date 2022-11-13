@@ -40,6 +40,21 @@
     belowskip=1em
 }
 
+\lstdefinestyle{mystyle}{
+    basicstyle=\ttfamily\footnotesize,
+    columns=fullflexible,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4,
+    aboveskip=1em,
+    belowskip=1em
+}
+
 \newcommand{\source}[1]{\caption*{\hfill \scriptsize Fonte: {#1}} }
 
 \oddsidemargin=30pt
@@ -335,7 +350,7 @@ L'approccio classico per lo stereo matching è: per ogni pixel $p = (x, y)$ nell
 
 Il calcolo della \textbf{somiglianza} differisce in ogni algoritmo, ma in generale viene calcolata utilizzando la regione intorno al punto. Si definiscono due \textit{finestre} di grandezza $NxN$: $W (x, y)$, centrata nel punto $p$, e $W'$, che viene fatta scorrere in orizzontale lungo la linea. Ad ogni scorrimento corrisponde un nuovo punto $p'$. Per ogni punto $p'$ trovato, si calcola una metrica particolare derivata dall'intorno. Tre metriche popolari sono la \textit{Correlazione Normalizzata}, la \textit{Sum of Squared Differences} e la \textit{Sum of Absolute Differences} \cite{stereomatchingalgos}.
 
-Un approccio alternativo consiste nell'\textit{edge matching}. In questo caso per le due immagini si trovano i contorni, poi si fa il \textit{match} dei contorni in modo simile al metodo delle finestre: in questo caso si calcola la somiglianza tra contorni.
+Un approccio alternativo consiste nell'\textit{edge matching} (\textit{corrispondenza dei contorni}). In questo caso per le due immagini si trovano i contorni, poi si fa il \textit{match} dei contorni in modo simile al metodo delle finestre: in questo caso si calcola la somiglianza tra contorni.
 
 \begin{figure}[h]
     \centering
@@ -343,9 +358,6 @@ Un approccio alternativo consiste nell'\textit{edge matching}. In questo caso pe
     \caption{I contorni di un immagine}
     \label{img:contours}
 \end{figure}
-
-% perhaps consider a section about epipolar geometry
-% vim doesn't know about epipolar or epipolare funny
 
 
 
@@ -395,9 +407,208 @@ Il Lisp ha molti dialetti e *Lisp è uno di questi (in particolare, è un dialet
 
 \chapter{Descrizione dell'algoritmo}
 
+L'algoritmo di \textit{stereo matching} che andiamo a presentare ha come obbiettivo il disegnare le linee di livello di un area geografica. Questo problema viene chiamato \textit{contour mapping} e consiste nell'estrarre informazioni sull'altezza da immagini che memorizzano informazioni sulla luminosità dell'area. L'immagine risultante viene chiamata \textit{contour map} (mappa dei contorni o dei livelli).
+
+L'algoritmo prende come input due immagini aeree di un'area geografica: le due immagini devono essere uno \textit{stereo pair} e devono essere siano in bianco e nero, ovvero all'inizio dell'algoritmo le due immagini devono rappresentare la luminosità che c'è in ogni punto dell'area geografica.
+
+L'algoritmo è composto da tre fasi:
+
+\begin{enumerate}
+    \item La ricerca dei bordi o contorni;
+    \item La ricerca di corrispondenze tra i contorni trovati;
+    \item Il disegno delle linee di livello;
+\end{enumerate}
+
+Questo algoritmo si tratta di un algoritmo di \textit{edge matching}: le operazioni più importanti sono quelle legate alla ricerca e alla corrispondenza dei bordi (\textit{edges}).
+
+\section{Ricerca ed estrazione dei bordi}
+
+La ricerca dei contorni avviene indipendentemente su tutte e due le immagini. L'algoritmo definisce un contorno come una linea che giace sul confine tra aree di luminosità molto diversa. A questo proposito, l'algoritmo da per ogni pixel basandosi sugli intorni del pixel: se da un lato del pixel la luminosità è molto differente che dall'altro, allora il pixel viene classificato come un pixel del contorno. Questa operazione è un esempio di \textit{local neighborhood operation}, operazione locale sui vicini.
+
+La seguente funzione in *Lisp mostra l'implementazione originale dell'operazione. Questa funzione si occupa solo di un pixel e calcola la differenza di luminosità tra il lato destro e sinistro del pixel: se questa risulta maggiore di una certa soglia, allora il pixel viene considerato come parte di un bordo.
+
+\begin{lstlisting}[style=mystyle]
+(*defun find-edges-between-left-and-right!! (brightness-pvar threshold)
+  (*let*
+    ((average-brightness-on-the-left
+       (/!! (+!! (pref-grid-relative!! brightness-pvar (!! -1) (!! -1))
+                 (pref-grid-relative!! brightness-pvar (!! -1) (!!  0))
+                 (pref-grid-relative!! brightness-pvar (!! -1) (!!  1)))
+            (!! 3.0)))
+     (average-brightness-on-the-right
+       (/!! (+!! (pref-grid-relative!! brightness-pvar (!!  1) (!! -1))
+                 (pref-grid-relative!! brightness-pvar (!!  1) (!!  0))
+                 (pref-grid-relative!! brightness-pvar (!!  1) (!!  1)))
+            (!! 3.0)))
+     (average-brightness-overall
+       (/!! (+!! average-brightness-on-the-left
+                 average-brightness-on-the-right)
+            (!! 2.0))))
+    (if!! (>!! (absolute-value!! (-!! average-brightness-on-the-left
+                                      average-brightness-on-the-right))
+               (*!! (!! threshold) average-brightness-overall))
+          (!! 1)
+          (!! 0))))
+\end{lstlisting}
+
+Questa e altre funzioni simili, che confronteranno anche gli altri lati (sopra, sotto e nelle diagonali), vengono combinate con la seguente funzione, per garantire il ritrovo di ogni contorno:
+
+\begin{lstlisting}[style=mystyle]
+(*defun find-all-edges!! (brightness-pvar threshold)
+  (if!! (or!! (=! (!! 1) (find-edges-between-left-and-right!!
+                           brightness-pvar threshold))
+              (=! (!! 1) (find-edges-between-above-and-below!!
+                           brightness-pvar threshold))
+              (=! (!! 1) (find-edges-between-upper-left-and-lower-right!!
+                           brightness-pvar threshold))
+              (=! (!! 1) (find-edges-between-lower-left-and-upper-right!!
+                           brightness-pvar threshold)))
+        (!! 1)
+        (!! 0)))
+\end{lstlisting}
+
+Il risultato è una nuova immagine con solo valori 0 o 1, dove gli uni indicano i bordi.
+
+\section{Ricerca di corrispondenze tra i bordi}
+
+Il prossimo passo consiste nell'\textit{edge matching} tra le immagini dei bordi ottenute. Questo passo viene fatto con un processo di scorrimento: la prima immagine resta ferma, mentre la seconda viene fatta scorrere sulla prima. Ad ogni scorrimento (\textit{shift}), tutti i pixel della prima immagine vengono confrontati con la seconda e i risultati vengono memorizzati in una nuova immagine.
+
+La funzione seguente è l'implementazione originale. L'array alla riga 1 memorizza le immagini risultanti per ogni scorrimento.
+
+\begin{lstlisting}[style=mystyle]
+(defvar *array-of-pvars-holding-matches-at-each-shift* (make-array 30))
+
+(*defun fillup-pvars-wherever-edges-align (left-edges right-edges)
+  (dotimes (i 30)
+    (aset (if!! (=!! left-edges
+                     (pref-grid-relative!! right-edges (!! i) (!! 0)))
+                        ; ^ this PREF-GRID-RELATIVE!! accomplishes
+                        ; the "sliding" process.
+                (!! 1)
+                (!! 0))
+          *array-of-pvars-holding-matches-at-each-shift*
+          i)))
+\end{lstlisting}
+
+A questo punto, l'algoritmo usa le informazioni appena calcolate per misurare la qualità dell'allineamento: per ogni pixel, si calcola quale scorrimento è il migliore tra tutti. L'indice dello scorrimento migliore corrisponderà direttamente all'altezza di quel pixel.
+
+Lo scorrimento migliore viene calcolato con un'altra operazione locale sui vicini: per ogni pixel vengono contati il numero di pixel nell'intorno che hanno avuto una corrispondenza (un \textit{match}) in quello scorrimento. Nell'implementazione originale, questo intorno è un quadrato di lato variabile e vengono sommati tutti i pixel posti a 1 in precedenza.
+
+\begin{lstlisting}[style=mystyle]
+(*defun add-up-all-pixels-in-a-square (pvar width-of-square)
+  (let ((one-half-the-square-width (/ width-of-square 2)))
+    (*let ((total (!! 0)))
+      (dotimes (relative-x width-of-square)
+        (dotimes (relative-y width-of-square)
+          (*set total
+                (+!! total
+                     (pred-grid-relative!!
+                       pvar
+                       (- relative-x one-half-the-square-width)
+                       (- relative-y one-half-the-square-width))))))
+      total)))
+\end{lstlisting}
+
+Questa funzione viene poi usata per memorizzare la qualità di tutti gli scorrimenti. Nella funzione seguenti, vengono esclusi dal calcolo della qualità tutti i pixel che non fanno parte dei bordi.
+
+\begin{lstlisting}[style=mystyle]
+(defvar *array-of-pvars-holding-scores-at-each-shift* (make-array 30))
+
+(*defun fillup-pvars-with-match-scores (width-of-square)
+  ;; WIDTH-OF-SQUARE will typically be 21
+  (dotimes (i 30)
+    (*let ((sum-of-all-nearby-pixels
+            (add-up-all-pixels-in-a-square
+              (aref *array-of-pvars-holding-matches-at-each-shift* i)
+              width-of-square)))
+      (*if (=!! (aref *array-of-pvars-holding-matches-at-each-shift* i)
+                (!! 1)) ;;; record a score wherever there was a match-up
+           (*set sum-of-all-nearby-pixels
+                 *array-of-pvars-holding-scores-at-each-shift*
+                 i)))))
+\end{lstlisting}
+
+Infine, per trovare il migliore scorrimento per ogni pixel, basta usare la classica operazione di ricerca del massimo. La funzione seguente crea due nuove immagini che memorizzano sia i punteggi che gli scorrimenti migliori per ogni pixel.
+
+\begin{lstlisting}[style=mystyle]
+(*defun find-the-shifts-of-the-highest-scoring-matches ()
+  (*let ((best-scores (!! 0))
+        (winning-shifts (!! 0)))
+    ;; the following DOTIMES loop makes sure that each pixel in the
+    ;; BEST-SCORES pvar contains the maximum score found at any shift.
+    (dotimes (i 30)
+      (*if (>!! (aref *array-of-pvars-holding-scores-at-each-shift* i)
+                best-scores)
+           (*set best-scores
+                 (aref *array-of-pvars-holding-scores-at-each-shift* i))))
+    ;; the following DOTIMES loop records a "winning" shift at every
+    ;; pixel whose score is the best.
+    (dotimes (i 30)
+      (*if (=!! (aref *array-of-pvars-holding-scores-at-each-shift* i)
+                best-scores)
+           (*set winning-shifts (!! (1+ i)))))
+    winning-shifts))
+\end{lstlisting}
+
+\section{Disegno delle linee di livello}
+
+Il processo fatto fin'ora ci dà un'immagine che rappresenta l'altezza dell'area ad ogni pixel. Le altezze memorizzate però valgono solo per i pixel che giacciono sui bordi: essenzialmente tra i bordi ci sono ancora dei buchi e serve un altro passo per trovare le informazioni mancanti per questi buchi. L'algoritmo trova queste informazioni usando un operazione di interpolazione: per ogni pixel la cui altezza è zero, calcola una media sugli intorni dei pixel.
+
+Compiendo questa operazione una sola volta, solo i pixel giacenti vicino ai bordi si riempirebbero, quindi l'operazione viene ripetuta un certo numero di volte, finché tutti i pixel siano maggiori di zero.
+
+\begin{lstlisting}[style=mystyle]
+(defun fill-in-web-holes (web-of-known-elevations times-to-repeat)
+  (dotimes (i times-to-repeat)
+    (*let ((not-fixed (zerop!! web-of-known-elevations)))
+      (*if not-fixed
+        (*set web-of-known-elevations
+              (/! (+!!
+                    (pref-grid-relative!!
+                      web-of-known-elevations
+                      (!!  1) (!!  0))  ; neighbor to the right
+                    (pref-grid-relative!!
+                      web-of-known-elevations
+                      (!!  0) (!!  1))  ; neighbor above
+                    (pref-grid-relative!!
+                      web-of-known-elevations
+                      (!! -1) (!!  0))  ; neighbor to the left
+                    (pref-grid-relative!!
+                      web-of-known-elevations
+                      (!!  0) (!! -1))) ; neighbot below
+                  (!! 4))))))
+  ;;; this is now a more or less smooth surface.
+  web-of-known-elevations)
+\end{lstlisting}
+
+L'ultimo passo consiste nel disegnare le linee di livello. L'implementazione originale prende in input il numero di linee da tracciare, divide le altezze in più intervalli e traccia una linea per ogni intervallo.
+
+\begin{lstlisting}[style=mystyle]
+(defun draw-contour-map (number-of-contour-lines
+                         pvar-of-smooth-continuous-elevations)
+  (let ((max-elevation (*max pvar-of-smooth-continuous-elevations))
+        (min-elevation (*min pvar-of-smooth-continuous-elevations))
+        (range-of-elevations (- max-elevation min-elevation))
+        (contour-line-interval (/ range-of-elevations
+                                  number-of-contour-lines)))
+    (if!! (zerop!!
+            (mod!! (-!! pvar-of-smooth-continuous-elevations
+                        (!! min-elevation))
+                          (!! contour-line-interval)))
+          (!! 1)        ;; this if!! draws all the elevation contours
+          (!! 0))))     ;; at once, returning a bit map suitable
+                        ;; for immediate display.
+\end{lstlisting}
+
+\chapter{Progettazione e traduzione}
+
+Basandoci sulla descrizione dell'algoritmo nel capitolo precedente, ne presentiamo una traduzione in CUDA.
+
+\section{Ricerca ed estrazione dei bordi}
+\section{Ricerca di corrispondenze tra i bordi}
+\section{Disegno delle linee di livello}
+\section{Ottimizzazioni}
 
 
-\chapter{Progettazione}
 
 \chapter{Valutazione delle prestazioni}
 
