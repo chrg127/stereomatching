@@ -395,6 +395,61 @@ Il Lisp ha molti dialetti e *Lisp è uno di questi (in particolare, è un dialet
 
 \chapter{Descrizione dell'algoritmo}
 
+L'algoritmo di \textit{stereo matching} che andiamo a presentare ha come input due immagini aeree di un'area geografica ed ha come obbiettivo il disegnare le linee di livello dell'area. Le due immagini devono essere uno \textit{stereo pair} e devono essere già calibrate e rettificate. L'algoritmo assume inoltre che le immagini siano in bianco e nero. % TODO: problem is called 'contour mapping' and is about extracting elevation information from brightness
+% TODO: In questa fase, le immagini rappresentano la luminosità che c'è in ogni punto
+
+L'algoritmo è composto da tre fasi:
+
+\begin{enumerate}
+    \item La ricerca dei bordi o contorni;
+    \item La ricerca di corrispondenze tra i contorni trovati;
+    \item Il disegno delle linee di livello;
+\end{itemize}
+
+\section{Ricerca dei contorni}
+
+La ricerca dei contorni avviene indipendentemente su tutte e due le immagini. L'algoritmo definisce un contorno come una linea che giace sul confine tra aree di luminosità molto diversa. A questo proposito, l'algoritmo da per ogni pixel basandosi sugli intorni del pixel: se da un lato del pixel la luminosità è molto differente che dall'altro, allora il pixel viene classificato come un pixel del contorno. Questa operazione è un esempio di \textit{local neighborhood operation}, operazione locale sui vicini.
+
+La seguente funzione in *Lisp mostra l'implementazione originale dell'operazione. Questa funzione si occupa solo di un pixel. % se la diff di luminosita è maggiore della soglia...
+
+\begin{lstlisting}
+(*defun find-edges-between-left-and-right!! (brightness-pvar threshold)
+  (*let* ((average-brightness-on-the-left
+            (/!! (+!! (pref-grid-relative!! brightness-pvar (!! -1) (!! -1))
+                      (pref-grid-relative!! brightness-pvar (!! -1) (!!  0))
+                      (pref-grid-relative!! brightness-pvar (!! -1) (!!  1)))
+                 (!! 3.0)))
+          (average-brightness-on-the-right
+            (/!! (+!! (pref-grid-relative!! brightness-pvar (!!  1) (!! -1))
+                      (pref-grid-relative!! brightness-pvar (!!  1) (!!  0))
+                      (pref-grid-relative!! brightness-pvar (!!  1) (!!  1)))
+                 (!! 3.0)))
+          (average-brightness-overall
+            (/!! (+!! average-brightness-on-the-left
+                      average-brightness-on-the-right)
+                 (!! 2.0))))
+         (if!! (>!! (absolute-value!! (-!! average-brightness-on-the-left
+                                           average-brightness-on-the-right))
+                    (*!! (!! threshold) average-brightness-overall))
+               (!! 1)
+               (!! 0))))
+\end{lstlisting}
+
+Questa specifica funzione guarda solo a destra e a sinistra del pixel: questa e altre funzioni simili, che confronteranno anche gli altri lati (sopra, sotto e nelle diagonali), vengono combinate con la seguente funzione, per garantire il ritrovo di ogni contorno:
+
+\begin{lstlisting}
+(*defun find-all-edges!! (brightness-pvar threshold)
+  (if!! (or!! (=! (!! 1) (find-edges-between-left-and-right!!              brightness-pvar threshold))
+              (=! (!! 1) (find-edges-between-above-and-below!!             brightness-pvar threshold))
+              (=! (!! 1) (find-edges-between-upper-left-and-lower-right!!  brightness-pvar threshold))
+              (=! (!! 1) (find-edges-between-lower-left-and-upper-right!!  brightness-pvar threshold)))
+        (!! 1)
+        (!! 0)))
+\end{lstlisting}
+
+\section{Trovare corrispondenze tra i contorni}
+
+
 
 
 \chapter{Progettazione}
