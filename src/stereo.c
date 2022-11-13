@@ -252,9 +252,10 @@ i32 *fill_web_holes(i32 *web, int width, int height, int times)
 i32 image_max(i32 *im, int width, int height) { return array_max(im, width*height); }
 i32 image_min(i32 *im, int width, int height) { return array_min(im, width*height); }
 
-void draw_contour_map(i32 *web, int width, int height, int num_lines,
-                      i32 max_elevation, i32 min_elevation, u8 *image_output)
+void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_output)
 {
+    i32 max_elevation = image_max(web, width, height),
+        min_elevation = image_min(web, width, height);
     // the idea is to divide the whole range of elevations into a number of intervals,
     // then to draw a contour line at every interval.
     i32 range    = max_elevation - min_elevation,
@@ -311,10 +312,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // fourth step: draw contour lines
     web = fill_web_holes(web, width, height, params.times);
     write_image(web, width, height, 0, IMTYPE_GRAY_INT, "web", 2);
-    i32 immax = image_max(web, width, height),
-        immin = image_min(web, width, height);
-    printf("immax = %d, immin = %d\n", immax, immin);
-    draw_contour_map(web, width, height, params.lines_to_draw, immax, immin, out);
+    draw_contour_map(web, width, height, params.lines_to_draw, out);
     write_image(out, width, height, 0, IMTYPE_BINARY, "output", 0);
 
     GHOST_FREE(u8, first_edges,  width, 30);
@@ -366,6 +364,15 @@ int main(int argc, char *argv[])
     }
     if (argc >= 7 && parse_int(argv[6], &params.lines_to_draw)) {
         fprintf(stderr, "error: lines must be a number\n");
+        return 1;
+    }
+
+    if (params.threshold < 0.0 || params.threshold > 1.0) {
+        fprintf(stderr, "error: threshold must be between 0 and 1\n");
+        return 1;
+    }
+    if (params.square_width > first.width || params.square_width > first.height) {
+        fprintf(stderr, "error: square width must not be higher than image width/height\n");
         return 1;
     }
 

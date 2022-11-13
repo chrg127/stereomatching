@@ -264,8 +264,8 @@ i32 *fill_web_holes(i32 *web, int width, int height, int times)
 i32 image_max(i32 *im, int width, int height) { return array_max_gpu(im, width*height); }
 i32 image_min(i32 *im, int width, int height) { return array_min_gpu(im, width*height); }
 
-__global__ void draw_contour_map(i32 *web, int width, int height, int num_lines,
-                                 i32 max_elevation, i32 min_elevation, u8 *image_output)
+__global__ void draw_contour_map_kernel(i32 *web, int width, int num_lines,
+                                        i32 max_elevation, i32 min_elevation, u8 *image_output)
 {
     // the idea is to divide the whole range of elevations into a number of intervals,
     // then to draw a contour line at every interval.
@@ -277,6 +277,16 @@ __global__ void draw_contour_map(i32 *web, int width, int height, int num_lines,
     // now the variable 'interval' tells us how many elevations, or shifts, to skip between
     // contour lines.
     image_output[i] = ((web[i] - min_elevation) % interval) == 0;
+}
+
+void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_output)
+{
+    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
+    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
+    i32 immax = image_max(web, width, height),
+        immin = image_min(web, width, height);
+    printf("immax = %d, immin = %d\n", immax, immin);
+    draw_contour_map_kernel<<<num_blocks, BLOCK_DIM_2D>>>(web, width, num_lines, immax, immin, image_output);
 }
 
 
@@ -322,10 +332,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // fourth step: draw contour lines
     web = fill_web_holes(web, width, height, params.times);
     write_image_from_gpu(web, width, height, 0, IMTYPE_GRAY_INT, "web", 2);
-    i32 immax = image_max(web, width, height),
-        immin = image_min(web, width, height);
-    printf("immax = %d, immin = %d\n", immax, immin);
-    draw_contour_map<<<num_blocks, BLOCK_DIM_2D>>>(web, width, height, params.lines_to_draw, immax, immin, out);
+    draw_contour_map(web, width, height, params.lines_to_draw, out);
     write_image_from_gpu(out, width, height, 0, IMTYPE_BINARY, "output", 0);
 
     GHOST_FREE_GPU(u8, first_edges,  width, 30);
@@ -377,6 +384,15 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if (params.threshold < 0.0 || params.threshold > 1.0) {
+        fprintf(stderr, "error: threshold must be between 0 and 1\n");
+        return 1;
+    }
+    if (params.square_width > first.width || params.square_width > first.height) {
+        fprintf(stderr, "error: square width must not be higher than image width/height\n");
+        return 1;
+    }
+
     double *first_ghost  = ghost_add_gpu_double(first.data,  first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
     double *second_ghost = ghost_add_gpu_double(second.data, first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
 
@@ -387,6 +403,5 @@ int main(int argc, char *argv[])
     GHOST_FREE_GPU(double, second_ghost, first.width, 1);
     free(first.data);
     free(second.data);
-
     return 0;
 }
