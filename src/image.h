@@ -18,11 +18,16 @@ typedef enum ImageType {
     IMTYPE_GRAY_INT,    // an image where each pixel is an integer from 0 to 255
 } ImageType;
 
+typedef enum ProgramType {
+    SER, PAR, SERGHOST, PARGHOST,
+} ImageProgramType;
+
 int read_image(const char *name, Image *out);
-void write_image(void *data, int width, int height, int ghost_size, ImageType type, const char *name, int number);
+char *make_filename(const char *name, ImageProgramType type, int number);
+void write_image(void *data, int width, int height, int ghost_size, ImageType type, char *filename);
 
 #ifdef __NVCC__
-void write_image_from_gpu(void *data, int width, int height, int ghost_size, ImageType type, const char *name, int number);
+void write_gpu_image(void *data, int width, int height, int ghost_size, ImageType type, char *name);
 #endif
 
 #ifdef __NVCC__

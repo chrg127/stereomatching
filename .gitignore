@@ -21,3 +21,5 @@ out
 *.synctex.gz
 *.fdb_latexmk
 *.fls
+debug
+timing

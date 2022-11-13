@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <assert.h>
+#include <time.h>
 #ifdef __NVCC__
 #include "helper_cuda.h"
 #endif
@@ -31,12 +32,17 @@ typedef int32_t  i32;
     } while (0)
 
 #ifdef __NVCC__
-__host__ __device__
+#define HOST __host__
+#define DEVICE __device__
+#else
+#define HOST
+#define DEVICE
 #endif
-static inline int idx(int x, int y, int w)
+
+HOST DEVICE static inline int idx(int x, int y, int w, int h)
 {
     x = (x + w) % w;
-    y = (y + w) % w;
+    y = (y + h) % h;
     return y * w + x;
 }
 
@@ -72,18 +78,12 @@ static inline int parse_int(const char *s, int *n)
  * performs an integer division, rounding to the higher integer instead of the lower one.
  * e.g. 1/2 = 1, 5/3 = 2
  */
-#ifdef __NVCC__
-__host__ __device__
-#endif
-static inline int ceil_div(int x, int y)
+HOST DEVICE static inline int ceil_div(int x, int y)
 {
     return (x + y - 1) / y;
 }
 
-#ifdef __NVCC__
-__host__ __device__
-#endif
-static inline i32 array_max(i32 *a, size_t s)
+HOST DEVICE static inline i32 array_max(i32 *a, size_t s)
 {
     i32 m = INT_MIN;
     for (size_t i = 0; i < s; i++)
@@ -91,16 +91,22 @@ static inline i32 array_max(i32 *a, size_t s)
     return m;
 }
 
-#ifdef __NVCC__
-__host__ __device__
-#endif
-static inline i32 array_min(i32 *a, size_t s)
+HOST DEVICE static inline i32 array_min(i32 *a, size_t s)
 {
     i32 m = INT_MAX;
     for (size_t i = 0; i < s; i++)
         m = MIN(a[i], m);
     return m;
 }
+
+static inline double get_time(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + (double) ts.tv_nsec / 1e9;
+}
+
+
 
 // CUDA specific helper functions
 

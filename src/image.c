@@ -44,12 +44,30 @@ static int get_image_value(void *p, int x, int y, int width, int ghost_size, Ima
     }
 }
 
-// writes a grayscale image.
-void write_image(void *data, int width, int height, int ghost_size, ImageType type, const char *name, int number)
+char *make_filename(const char *name, ImageProgramType type, int number)
 {
-    char filename[1000];
-    snprintf(filename, sizeof(filename), "%s%d.ppm", name, number);
+    char *filename = ALLOCATE(char, 1024);
+    // in debug mode create images in another directory.
+    // this is for the diff.sh script to work.
+#ifdef DEBUG
+    switch (type) {
+    case SER:      snprintf(filename, sizeof(char) * 1024, "%s/%s-%d.ppm", "ser",   name, number); break;
+    case PAR:      snprintf(filename, sizeof(char) * 1024, "%s/%s-%d.ppm", "par",   name, number); break;
+    case SERGHOST: snprintf(filename, sizeof(char) * 1024, "%s/%s-%d.ppm", "sergh", name, number); break;
+    case PARGHOST: snprintf(filename, sizeof(char) * 1024, "%s/%s-%d.ppm", "pargh", name, number); break;
+    }
+#else
+    snprintf(filename, sizeof(char) * 1024, "%s-%d.ppm", name, number); break;
+#endif
+    return filename;
+}
+
+// writes a grayscale image.
+void write_image(void *data, int width, int height, int ghost_size, ImageType type, char *filename)
+{
+#ifndef NO_WRITES
     FILE *f = fopen(filename, "w");
+    free(filename);
     if (!f)
         return;
     fprintf(f, "P3\n%d %d\n255\n", width, height);
@@ -59,4 +77,5 @@ void write_image(void *data, int width, int height, int ghost_size, ImageType ty
             fprintf(f, "%d %d %d\n", v, v, v);
         }
     }
+#endif
 }
