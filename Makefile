@@ -17,8 +17,8 @@ ifeq ($(build),debug)
 	NVFLAGS += -g -DDEBUG
 else ifeq ($(build),timing)
     outdir := timing
-    CFLAGS += -O3 -DNO_WRITE
-	NVFLAGS := -O3 -DNO_WRITE
+    CFLAGS += -O3 -DNO_WRITES
+	NVFLAGS := -O3 -DNO_WRITES
 else
 	$(error error: invalid value for build)
 endif
