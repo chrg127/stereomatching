@@ -37,7 +37,7 @@ __device__ int find_edges_top_bottom(double *brightness, int width, int height, 
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-__device__ int find_edges_upleft_downright(double *brightness, int width, int height, int x, int y, double threshold)
+__device__ int find_edges_upleft_downright(double *brightness, int height, int width, int x, int y, double threshold)
 {
     double avg_left  = (brightness[idx(x-1, y-1, width, height)]
                      +  brightness[idx(x  , y-1, width, height)]
@@ -49,7 +49,7 @@ __device__ int find_edges_upleft_downright(double *brightness, int width, int he
     return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
 }
 
-__device__ int find_edges_downleft_upright(double *brightness, int width, int height, int x, int y, double threshold)
+__device__ int find_edges_downleft_upright(double *brightness, int height, int width, int x, int y, double threshold)
 {
     double avg_left  = (brightness[idx(x-1, y+1, width, height)]
                      +  brightness[idx(x  , y+1, width, height)]
@@ -65,13 +65,12 @@ __global__ void find_all_edges(double *brightness, int width, int height, double
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
-    edges[idx(x, y, width, height)] =
+    edges[IDX(x, y, width)] =
         find_edges_left_right      (brightness, width, height, x, y, threshold)
      || find_edges_top_bottom      (brightness, width, height, x, y, threshold)
      || find_edges_upleft_downright(brightness, width, height, x, y, threshold)
      || find_edges_downleft_upright(brightness, width, height, x, y, threshold);
 }
-
 
 
 // step 2
@@ -281,9 +280,9 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
 
     u8 *first_edges  = ALLOCATE_GPU(u8, width * height),
        *second_edges = ALLOCATE_GPU(u8, width * height);
-    i32 *buf = ALLOCATE_GPU(i32, width * height),
-        *web = ALLOCATE_GPU(i32, width * height);
-    u8 *out = ALLOCATE_GPU(u8, width * height);
+    i32 *buf         = ALLOCATE_GPU(i32, width * height),
+        *web         = ALLOCATE_GPU(i32, width * height);
+    u8 *out          = ALLOCATE_GPU(u8, width * height);
     allocate_matches(width, height);
     allocate_scores(width, height);
 
@@ -379,14 +378,10 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    double *first_ghost  = ghost_add_gpu_double(first.data,  first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
-    double *second_ghost = ghost_add_gpu_double(second.data, first.width, first.height, 1, 128.0, cudaMemcpyHostToDevice);
+    double *first_gpu  = MAKE_GPU_COPY(double, first.data,  first.width * first.height),
+           *second_gpu = MAKE_GPU_COPY(double, second.data, first.width * first.height);
+    algorithm(first_gpu, second_gpu, first.width, first.height, params);
 
-    algorithm(first_ghost, second_ghost, first.width, first.height, params);
-    cudaDeviceSynchronize();
-
-    GHOST_FREE_GPU(double, first_ghost,  first.width, 1);
-    GHOST_FREE_GPU(double, second_ghost, first.width, 1);
     free(first.data);
     free(second.data);
     return 0;
