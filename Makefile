@@ -35,7 +35,7 @@ objs_par 	 	   := $(patsubst %,$(outdir)/%,$(_objs_par))
 objs_serial_ghost  := $(patsubst %,$(outdir)/%,$(_objs_serial_ghost))
 objs_par_ghost 	   := $(patsubst %,$(outdir)/%,$(_objs_par_ghost))
 
-all: $(outdir) $(outdir)/$(name) $(outdir)/$(name_par) $(outdir)/$(name_ghost) $(outdir)/$(name_ghost_par)
+all: $(outdir) $(outdir)/$(name) $(outdir)/$(name_ghost) $(outdir)/$(name_par) $(outdir)/$(name_ghost_par)
 
 $(outdir):
 	mkdir -p $(outdir)

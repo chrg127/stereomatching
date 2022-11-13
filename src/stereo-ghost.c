@@ -92,7 +92,7 @@ void write_matches(int width, int height)
 {
 #ifndef NO_WRITES
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(matches[i], width, height, GHOST_SIZE_MATCHES, IMTYPE_BINARY, "matches", i);
+        write_image(matches[i], width, height, GHOST_SIZE_MATCHES, IMTYPE_BINARY, make_filename("matches", SERGHOST, i));
 #endif
 }
 
@@ -133,7 +133,7 @@ void write_scores(int width, int height)
 {
 #ifndef NO_WRITES
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(scores[i], width, height, 0, IMTYPE_GRAY_INT, "scores", i);
+        write_image(scores[i], width, height, 0, IMTYPE_GRAY_INT, make_filename("scores", SERGHOST, i));
 #endif
 }
 
@@ -178,7 +178,7 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
     for (int i = 0; i < NUM_SHIFTS; i++) {
         memset(sum, 0, sizeof(sum[0]) * width * height);
         addup_pixels_in_square(matches[i], width, height, square_width, sum);
-        write_image(sum, width, height, 0, IMTYPE_GRAY_INT, "score_all", i);
+        write_image(sum, width, height, 0, IMTYPE_GRAY_INT, make_filename("score_all", SERGHOST, i));
         record_score(i, sum, width, height);
     }
 }
@@ -288,8 +288,8 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // first step: find edges in both images
     find_all_edges(first,  width, height, params.threshold, first_edges);
     find_all_edges(second, width, height, params.threshold, second_edges);
-    write_image(first_edges,  width, height, GHOST_SIZE_EDGES, IMTYPE_BINARY, "edges", 1);
-    write_image(second_edges, width, height, GHOST_SIZE_EDGES, IMTYPE_BINARY, "edges", 2);
+    write_image(first_edges,  width, height, GHOST_SIZE_EDGES, IMTYPE_BINARY, make_filename("edges", SERGHOST, 1));
+    write_image(second_edges, width, height, GHOST_SIZE_EDGES, IMTYPE_BINARY, make_filename("edges", SERGHOST, 2));
 
     // second step: match edges between images
     fillup_matches(first_edges, second_edges, width, height);
@@ -300,14 +300,14 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     write_scores(width, height);
     memset(buf, 0, sizeof(buf[0]) * width * height);
     find_highest_scoring_shifts(buf, web, width, height);
-    write_image(buf, width, height, 0, IMTYPE_GRAY_INT, "score_best", 0);
-    write_image(web, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
+    write_image(buf, width, height, 0, IMTYPE_GRAY_INT, make_filename("score_best", SERGHOST, 0));
+    write_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", SERGHOST, 1));
 
     // fourth step: draw contour lines
     web = fill_web_holes(web, width, height, params.times);
-    write_image(web, width, height, 0, IMTYPE_GRAY_INT, "web", 2);
+    write_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", SERGHOST, 2));
     draw_contour_map(web, width, height, params.lines_to_draw, out);
-    write_image(out, width, height, 0, IMTYPE_BINARY, "output", 0);
+    write_image(out, width, height, 0, IMTYPE_BINARY, make_filename("output", SERGHOST, 0));
 
     double t2 = get_time();
     double elapsed = t2 - t1;

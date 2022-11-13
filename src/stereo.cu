@@ -93,7 +93,7 @@ void write_matches(int width, int height)
     u8 *tmp[NUM_SHIFTS];
     checkCudaErrors(cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp)));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image_from_gpu(tmp[i], width, height, 0, IMTYPE_BINARY, "matches", i);
+        write_gpu_image(tmp[i], width, height, 0, IMTYPE_BINARY, make_filename("matches", PAR, i));
 #endif
 }
 
@@ -138,7 +138,7 @@ void write_scores(int width, int height)
     i32 *tmp[NUM_SHIFTS];
     checkCudaErrors(cudaMemcpyFromSymbol(tmp, scores, sizeof(tmp)));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image_from_gpu(tmp[i], width, height, 0, IMTYPE_GRAY_INT, "scores", i);
+        write_gpu_image(tmp[i], width, height, 0, IMTYPE_GRAY_INT, make_filename("scores", PAR, i));
 #endif
 }
 
@@ -182,7 +182,7 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
     for (int i = 0; i < NUM_SHIFTS; i++) {
         cudaMemset(sum, 0, sizeof(sum[0]) * width * height);
         addup_pixels_in_square<<<num_blocks, BLOCK_DIM_2D>>>(i, width, height, square_width, sum);
-        write_image_from_gpu(sum, width, height, 0, IMTYPE_GRAY_INT, "score_all", i);
+        write_gpu_image(sum, width, height, 0, IMTYPE_GRAY_INT, make_filename("score_all", PAR, i));
         record_score<<<num_blocks, BLOCK_DIM_2D>>>(i, sum, width, height);
     }
 }
@@ -292,8 +292,8 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     // first step: find edges in both images
     find_all_edges<<<num_blocks, BLOCK_DIM_2D>>>(first,  width, height, params.threshold, first_edges);
     find_all_edges<<<num_blocks, BLOCK_DIM_2D>>>(second, width, height, params.threshold, second_edges);
-    write_image_from_gpu(first_edges,  width, height, 0, IMTYPE_BINARY, "edges", 1);
-    write_image_from_gpu(second_edges, width, height, 0, IMTYPE_BINARY, "edges", 2);
+    write_gpu_image(first_edges,  width, height, 0, IMTYPE_BINARY, make_filename("edges", PAR, 1));
+    write_gpu_image(second_edges, width, height, 0, IMTYPE_BINARY, make_filename("edges", PAR, 2));
 
     // second step: match edges between images
     fillup_matches<<<num_blocks, BLOCK_DIM_2D>>>(first_edges, second_edges, width, height);
@@ -304,14 +304,14 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     write_scores(width, height);
     cudaMemset(buf, 0, sizeof(buf[0]) * width * height);
     find_highest_scoring_shifts<<<num_blocks, BLOCK_DIM_2D>>>(buf, web, width, height);
-    write_image_from_gpu(buf, width, height, 0, IMTYPE_GRAY_INT, "score_best", 0);
-    write_image_from_gpu(web, width, height, 0, IMTYPE_GRAY_INT, "web", 1);
+    write_gpu_image(buf, width, height, 0, IMTYPE_GRAY_INT, make_filename("score_best", PAR, 0));
+    write_gpu_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", PAR, 1));
 
     // fourth step: draw contour lines
     web = fill_web_holes(web, width, height, params.times);
-    write_image_from_gpu(web, width, height, 0, IMTYPE_GRAY_INT, "web", 2);
+    write_gpu_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", PAR, 2));
     draw_contour_map(web, width, height, params.lines_to_draw, out);
-    write_image_from_gpu(out, width, height, 0, IMTYPE_BINARY, "output", 0);
+    write_gpu_image(out, width, height, 0, IMTYPE_BINARY, make_filename("output", PAR, 0));
 
     double t2 = get_time();
     double elapsed = t2 - t1;
