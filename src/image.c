@@ -57,7 +57,7 @@ char *make_filename(const char *name, ImageProgramType type, int number)
     case PARGHOST: snprintf(filename, sizeof(char) * 1024, "%s/%s-%d.ppm", "pargh", name, number); break;
     }
 #else
-    snprintf(filename, sizeof(char) * 1024, "%s-%d.ppm", name, number); break;
+    snprintf(filename, sizeof(char) * 1024, "%s-%d.ppm", name, number);
 #endif
     return filename;
 }
