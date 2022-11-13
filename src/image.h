@@ -19,7 +19,7 @@ typedef enum ImageType {
 } ImageType;
 
 typedef enum ProgramType {
-    SER, PAR, SERGHOST, PARGHOST,
+    SER = 0, PAR, SERGHOST, PARGHOST,
 } ImageProgramType;
 
 int read_image(const char *name, Image *out);

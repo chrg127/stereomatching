@@ -50,7 +50,7 @@ $(outdir)/$(name_ghost): $(objs) $(objs_serial_ghost)
 	$(CC) $(objs) $(objs_serial_ghost) -o $@ $(LDLIBS)
 
 $(outdir)/$(name_ghost_par): $(objs) $(objs_par_ghost)
-	$(NVCC) $(objs) $(objs_par) -o $@ $(LDLIBS)
+	$(NVCC) $(objs) $(objs_par_ghost) -o $@ $(LDLIBS)
 
 -include $(outdir)/*.d
 
