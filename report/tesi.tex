@@ -618,9 +618,11 @@ L'ultimo passo consiste nel disegnare le linee di livello. L'implementazione ori
 
 \chapter{Progettazione e traduzione}
 
-Basandoci sulla descrizione dell'algoritmo nel capitolo precedente, ne presentiamo una traduzione in CUDA.
+Basandoci sulla descrizione dell'algoritmo nel capitolo precedente, ne presentiamo una traduzione in CUDA. Il codice nel suo complesso è reperibile al link \cite{thecode}.
 
 \section{Ricerca ed estrazione dei bordi}
+
+La prima funzione tradotta è stata quella che implementava la classificazione di un pixel come parte del bordo.
 
 \begin{lstlisting}[style=mystyle]
 __device__ int find_edges_left_right(double *brightness,
@@ -638,6 +640,17 @@ __device__ int find_edges_left_right(double *brightness,
 }
 \end{lstlisting}
 
+Da questa funzione notiamo alcuni dettagli:
+
+\begin{itemize}
+    \item La descrizione originale dell'algoritmo non dice niente sui tipi di dati: si sa solo che le immagini in input sono in bianco e nero, ovvero in scala di grigi, ma non dice nulla sul range di valori. La rappresentazione più comune per immagini in scala di grigi è avere un valore da 0 a 255 per ogni pixel; in questo programma, però, si è scelto un'altra rappresentazione: i valori sono in virgola mobile (\verb|double|) e vanno da 0 a 1, dove 0 indica il nero e 1 indica il bianco. Si è scelto questo per via del fatto che l'operazione di moltiplicazione della soglia a riga 11 ha senso solo con questa rappresentazione (anche la soglia ha un valore da 0 a 1).
+        \item Mentre in *Lisp le funzioni parallele agiscono su tutti gli elementi in automatico, in CUDA non è così: bisogna sempre fare un indicizzazione esplicita all'accesso degli array.
+    \item Il codice in *Lisp non ha nessun controllo sui bordi della \textit{pvar}: è il linguaggio stesso che fa questi controlli. CUDA non fa nessun controllo, per cui si è scelto che la funzione \verb|idx|, che ha il compito di semplificare l'indicizzazione, faccia un \textit{wrap-around} ogni volta che gli indici sono superiori ai bordi (\verb|w| e \verb|h|).
+    \item Infine, la funzione \verb|CLAMP| fa si che il risultato della moltiplicazione resti tra 0 e 1.
+\end{itemize}
+
+Come nell'implementazione originale, questa funzione viene implementata per tutti gli altri lati e le quattro funzioni risultanti vengono combinate:
+
 \begin{lstlisting}[style=mystyle]
 __global__ void find_all_edges(double *brightness, int w, int h,
         double threshold, u8 *edges)
@@ -652,29 +665,11 @@ __global__ void find_all_edges(double *brightness, int w, int h,
 }
 \end{lstlisting}
 
-\begin{lstlisting}[style=mystyle]
-__global__ void draw_contour_map_kernel(i32 *web, int width, int num_lines,
-                                        i32 max_elevation, i32 min_elevation, u8 *image_output)
-{
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-    int i = IDX(x, y, width);
-    i32 range    = max_elevation - min_elevation,
-        interval = range / num_lines;
-    image_output[i] = ((web[i] - min_elevation) % interval) == 0;
-}
-
-void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_output)
-{
-    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
-    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
-    i32 immax = image_max(web, width, height),
-        immin = image_min(web, width, height);
-    draw_contour_map_kernel<<<num_blocks, BLOCK_DIM_2D>>>(web, width, num_lines, immax, immin, image_output);
-}
-\end{lstlisting}
+Il risultato viene messo in \verb|edges|. Quest'ultimo è un immagine \textit{binaria}, ovvero un immagine con solo 0 o 1, dove 0 questa volta indica il bianco e 1 il nero. La funzione \verb|IDX|, utilizzata per indicizzare \verb|edges|, è una versione di \verb|idx| che non fa nessun \textit{wrap-around}, dato che in questo caso è impossibile che \verb|x| e \verb|y| siano fuori dai bordi.
 
 \section{Ricerca di corrispondenze tra i bordi}
+
+La creazione di strutture dati in CUDA non è trasparente come in *Lisp: per molte strutture si richiede l'allocazione esplicita. Le seguenti funzioni mostrano come viene gestito l'array \verb|matches|, che ha il compito di memorizzare, per ogni scorrimento, il risultato dell'\textit{edge matching}.
 
 \begin{lstlisting}[style=mystyle]
 __device__ u8 *matches[NUM_SHIFTS];
@@ -696,6 +691,10 @@ void free_matches()
 }
 \end{lstlisting}
 
+La funzione \verb|ALLOCATE_GPU| è un semplice \textit{wrapper} della funzione \verb|cudaMalloc| che ne semplifica il funzionamento.
+
+La funzione seguente è una traduzione diretta della funzione originale. Da notare che gli elementi di \verb|matches| sono tutte immagini binarie.
+
 \begin{lstlisting}[style=mystyle]
 __global__ void fillup_matches(u8 *left_edges, u8 *right_edges,
         int width, int height)
@@ -711,31 +710,16 @@ __global__ void fillup_matches(u8 *left_edges, u8 *right_edges,
 }
 \end{lstlisting}
 
+Per calcolare i punteggi ci serviamo di una struttura dati simile a \verb|matches|: le funzioni per allocare e liberare la memoria sono equivalenti. La seguente porzione di codice mostra anche la traduzione della funzione \verb|add-up-all-pixels-in-a-square|.
+
 \begin{lstlisting}[style=mystyle]
 __device__ i32 *scores[NUM_SHIFTS];
 
-void allocate_scores(int width, int height)
-{
-    i32 *tmp[NUM_SHIFTS];
-    for (int i = 0; i < NUM_SHIFTS; i++)
-        tmp[i] = ALLOCATE_GPU(i32, width * height);
-    cudaMemcpyToSymbol(scores, tmp, sizeof(tmp));
-}
+/* ... functions for managing scores omitted ... */
 
-void free_scores()
-{
-    i32 *tmp[NUM_SHIFTS];
-    cudaMemcpyFromSymbol(tmp, scores, sizeof(tmp));
-    for (int i = 0; i < NUM_SHIFTS; i++)
-        cudaFree(tmp[i]);
-}
-\end{lstlisting}
-
-\begin{lstlisting}[style=mystyle]
 __global__ void addup_pixels_in_square(int i, int width, int height,
         int square_width, i32 *total)
 {
-    u8 *pixels = matches[i];
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int cur = IDX(x, y, width);
@@ -743,11 +727,15 @@ __global__ void addup_pixels_in_square(int i, int width, int height,
     for (int sy = 0; sy < square_width; sy++) {
         for (int sx = 0; sx < square_width; sx++) {
             int rel = idx(x + sx - half, y + sy - half, width, height);
-            total[cur] += (i32) pixels[rel];
+            total[cur] += (i32) matches[i][rel];
         }
     }
 }
 \end{lstlisting}
+
+Le seguenti funzioni corrispondono alla funzione originale \verb|fillup-pvars-with-match-scores|, ma sono divise in due per via della \verb|cudaMemset| fatta prima di riempire l'array \verb|sum|: quest'ultimo viene usato in questo modo per evitare di fare più allocazioni.
+
+Qui si può anche notare il metodo di chiamata di una funzione kernel: la funzione \verb|ceil_div| serve per calcolare l'esatto numero di blocchi che servono a partire dalle dimensioni delle immagini.
 
 \begin{lstlisting}[style=mystyle]
 __global__ void record_score(int i, i32 *sum, int width, int height)
@@ -755,24 +743,26 @@ __global__ void record_score(int i, i32 *sum, int width, int height)
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int index = IDX(x, y, width);
-    // record a score whenever there was a match-up
     if (matches[i][index] == 1)
         scores[i][index] = sum[index];
 }
 
 void fillup_scores(int width, int height, int square_width, i32 *sum)
 {
-    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
-    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
+    const int BLOCKS_WIDTH  = ceil_div(width,  BLOCK_DIM_SIDE);
+    const int BLOCKS_HEIGHT = ceil_div(height, BLOCK_DIM_SIDE);
+    const dim3 NUM_BLOCKS = dim3(BLOCKS_WIDTH, BLOCK_HEIGHT);
     for (int i = 0; i < NUM_SHIFTS; i++) {
         cudaMemset(sum, 0, sizeof(sum[0]) * width * height);
-        addup_pixels_in_square<<<num_blocks, BLOCK_DIM_2D>>>(
+        addup_pixels_in_square<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(
             i, width, height, square_width, sum
         );
-        record_score<<<num_blocks, BLOCK_DIM_2D>>>(i, sum, width, height);
+        record_score<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(i, sum, width, height);
     }
 }
 \end{lstlisting}
+
+Infine, la funzione seguente esegue la ricerca del punteggio massimo per ogni pixel. La funzione MAX calcola il massimo tra due valori.
 
 \begin{lstlisting}[style=mystyle]
 __global__ void find_highest_scoring_shifts(i32 *best_scores,
@@ -781,12 +771,8 @@ __global__ void find_highest_scoring_shifts(i32 *best_scores,
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int index = IDX(x, y, width);
-    // the following loop makes sure that each pixel in the best_scores
-    // image contains the maximum score found at any shift.
     for (int i = 0; i < NUM_SHIFTS; i++)
-        if (scores[i][index] > best_scores[index])
-            best_scores[index] = scores[i][index];
-    __syncthreads();
+        best_scores[index] = MAX(scores[i][index], best_scores[index])
     for (int i = 0; i < NUM_SHIFTS; i++)
         if (scores[i][index] == best_scores[index])
             winning_shifts[index] = i+1;
@@ -795,8 +781,10 @@ __global__ void find_highest_scoring_shifts(i32 *best_scores,
 
 \section{Disegno delle linee di livello}
 
+La seguente funzione implementa l'operazione di riempimento dei buchi. Questa particolare funzione usa una tecnica di \textit{double buffer}, dato che non si può aggiornare un pixel di \verb|web| mentre si leggono altri pixel. Il codice originale non richiede tale operazione per via della semantica di *Lisp: la funzione originale legge prima tutti i pixel, poi aggiorna l'immagine. Facendo la stessa coda in CUDA richiederebbe una sincronizzazione prima dell'aggiornamento.
+
 \begin{lstlisting}[style=mystyle]
-__global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width)
+__global__ void fill_holes_step(i32 *web, i32 *tmp, int width)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -808,32 +796,83 @@ __global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width)
            + tmp[IDX(x,   y-1, width)]) / 4;
     }
 }
-\end{lstlisting}
 
-\begin{lstlisting}[style=mystyle]
-i32 *fill_web_holes(i32 *web, int width, int height, int times)
+i32 *fill_web_holes(i32 *web, i32 *tmp, int width, int height, int times)
 {
-    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
-    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
-    i32 *tmp = ALLOCATE_GPU(i32, width * height);
-    cudaMemcpy(tmp, web, sizeof(web[0]) * width * height,
-                cudaMemcpyDeviceToDevice);
+    DECLARE_BLOCKS(width, height)
     for (int i = 0; i < times; i++) {
-        fill_web_holes_step<<<num_blocks, BLOCK_DIM_2D>>>(
-            web, tmp, width
-        );
+        fill_holes_step<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(web, tmp, width);
         SWAP(web, tmp, i32 *);
     }
-    cudaFree(tmp);
     return web;
+}
+\end{lstlisting}
+
+Infine, le funzioni seguenti implementano la creazione della \textit{contour map}: di particolare nota sono le due funzioni \verb|image_max| e \verb|imagine_min|, che sono \textit{built-in} in *Lisp ma non in CUDA, per cui sono state implementate a mano usando un operazione di riduzione.
+
+\begin{lstlisting}[style=mystyle]
+__global__ void draw_contour_map_kernel(i32 *web, int width,
+        int num_lines, i32 max_elevation, i32 min_elevation, u8 *out)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int i = IDX(x, y, width);
+    i32 range    = max_elevation - min_elevation,
+        interval = range / num_lines;
+    out[i] = ((web[i] - min_elevation) % interval) == 0;
+}
+
+void draw_contour_map(i32 *web, int width, int height,
+        int num_lines, u8 *out)
+{
+    DECLARE_BLOCKS(width, height)
+    i32 immax = image_max(web, width, height),
+        immin = image_min(web, width, height);
+    draw_contour_map_kernel<<<num_blocks, BLOCK_DIM_2D>>>(
+        web, width, num_lines, immax, immin, out
+    );
 }
 \end{lstlisting}
 
 \section{Ottimizzazioni}
 
-% ghost stuff, etc...
+Un ottimizzazione molto ovvia che si può fare al programma è l'utilizzo di una \textit{ghost area}: questo consiste, nella fase di inizializzazione, nell'aggiungere un'area inutilizzata attorno all'immagine, cosicché, quando l'indicizzazione di un immagine esce fuori dal bordo, questa restituirà un valore dentro l'area inutilizzata.
+
+La \textit{ghost area} potrebbe quindi sostituire il \textit{wrap-around} presente nell'indicizzazione di molte immagini. In particolare, si può aggiungere una \textit{ghost area} sia per le immagini in input, sia per le immagini dei bordi, sia per le immagini contenute in \verb|matches|, dato che queste sono le uniche ad essere indicizzate usando la funzione \verb|idx|.
+
+Un'altra ottimizzazione sarebbe provare a rimuovere il \textit{double buffering} nella funzione di riempimento dei buchi e utilizzare sincronizzazioni esplicite. Si dubita però che questo porti a prestazioni migliorate. Questa tecnica però potrebbe portare ad un leggero miglioramento nell'uso della memoria.
 
 \chapter{Valutazione delle prestazioni}
+
+\section{Descrizione dei test}
+
+Per testare le prestazioni dell'algoritmo, sono state create quattro versioni: una versione seriale, una versione parallela (da cui proviene il codice presentato) e due versioni seriale e parallela che usano la \textit{ghost area}.
+
+Per quanto riguarda i test, si è scelto di usare alcune coppie di immagini di varie grandezze. Le coppie di immagini sono tutte uguali, avendo le dimensioni come unica differenza; si è provato anche ad usare immagini diverse, ma non sono state riscontrate differenze reali nei tempi di esecuzione.
+
+% I test sui programmi seriali sono stati effettuati in due macchine diversi; i test sui programmi paralleli sono stati effettuati su una sola macchina. 
+
+\section{Metriche usate}
+
+Lo \textit{Speedup} è la metrica più utilizzata nella misurazione delle prestazione di un programma parallelo e rappresenta l'accelerazione che ha avuto il programma tramite la parallelizzazione. In particolare, lo \textit{Speedup} si misura con la formula:
+
+\[ S(P) = \frac{T_{s}}{T(P)}  \]
+
+Dove $P$ è il numero di processori usati per il programma parallelo, $T_{s}$ è il tempo di esecuzione del programma seriale e e $T(P)$ il tempo di esecuzione del programma parallelo utilizzando $P$ processori.
+
+La misurazione dello \textit{speedup} però non risulta ideale quando si misura un programma CUDA: questa deriva dal fatto che in CUDA non si può decidere a priori quanti thread usare, dato che non si ha controllo diretto dell'hardware.
+
+Un'altra metrica che si usa per programmi CUDA è il \textit{throughput} (produttività), ovvero il numero di elementi processati per unità di tempo. Cosa significa il ``numero di elementi'' dipende da programma a programma. Nel nostro caso, il \textit{throughput} è misurato come numero di pixel processati per secondo.
+
+Solitamente il \textit{throughput} aumenta con l'aumentare dell'input fino a raggiungere un certo limite, dovuto dal fatto che si sfrutta sempre meglio il parallelismo offerto dalla GPU.
+
+\section{Dati raccolti}
+
+Di seguito si possono vedere i dati raccolti sia per lo \textit{Speedup} che per il \textit{throughput} in forma di grafici.
+
+% graphs
+
+% some words about results
 
 \chapter*{Conclusioni}
 
@@ -841,7 +880,12 @@ i32 *fill_web_holes(i32 *web, int width, int height, int times)
 \lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries CONCLUSIONI}}
 
 \addcontentsline{toc}{chapter}{Conclusioni}
-Queste sono le conclusioni.\\
+
+In questa tesi abbiamo analizzato e tradotto un vecchio algoritmo di \textit{stereo matching} per un hardware più moderno. In particolare, abbiamo analizzato alcune delle difficoltà che si possono riscontrare in questi lavori di traduzione e abbiamo analizzato quali sono le scelte migliori da fare e le ottimizzazione che si possono applicare nell'ambito CUDA.
+
+L'algoritmo si presta molto bene per la parallelizzazione su GPU; nonostante ciò, mentre i risultati di prestazione sono soddisfacenti, i risultati dell'algoritmo lo sono di meno, con immagini ``rumorose'' come output. In sviluppi futuri sarebbe interessante sviluppare una versione migliore dell'algoritmo e vedere come si presta alla parallelizzazione su GPU.
+
+Un altro sviluppo interessante sarebbero ottimizzazioni più elaborate: ad esempio, si potrebbe cercare di ``compattare'' le immagini binarie create temporaneamente durante l'esecuzione dell'algoritmo, usando un solo bit per pixel invece che un byte.
 
 \clearpage{\pagestyle{empty}\cleardoublepage}
 
