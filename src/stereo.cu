@@ -312,6 +312,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     draw_contour_map(web, width, height, params.lines_to_draw, out);
     write_gpu_image(out, width, height, 0, IMTYPE_BINARY, make_filename("output", PAR, 0));
 
+    cudaDeviceSynchronize();
     double t2 = get_time();
     double elapsed = t2 - t1;
     printf("width = %d, height = %d, t1 = %f, t2 = %f, elapsed = %f\n", width, height, t1, t2, elapsed);
