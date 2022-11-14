@@ -4,8 +4,6 @@ stereopar
 a.out
 *~
 *.ppm
-a.png
-b.png
 out
 *.swp
 *.aux

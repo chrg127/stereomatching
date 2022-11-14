@@ -55,6 +55,21 @@
     belowskip=1em
 }
 
+\lstdefinestyle{style2}{
+    basicstyle=\ttfamily\small,
+    columns=fullflexible,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4,
+    aboveskip=1em,
+    belowskip=1em
+}
+
 \newcommand{\source}[1]{\caption*{\hfill \scriptsize Fonte: {#1}} }
 
 \oddsidemargin=30pt
@@ -421,6 +436,8 @@ L'algoritmo è composto da tre fasi:
 
 Questo algoritmo si tratta di un algoritmo di \textit{edge matching}: le operazioni più importanti sono quelle legate alla ricerca e alla corrispondenza dei bordi (\textit{edges}).
 
+Per avere più dettagli sull'implementazione originale dell'algoritmo, si può consultare \cite{originalalgo}.
+
 \section{Ricerca ed estrazione dei bordi}
 
 La ricerca dei contorni avviene indipendentemente su tutte e due le immagini. L'algoritmo definisce un contorno come una linea che giace sul confine tra aree di luminosità molto diversa. A questo proposito, l'algoritmo da per ogni pixel basandosi sugli intorni del pixel: se da un lato del pixel la luminosità è molto differente che dall'altro, allora il pixel viene classificato come un pixel del contorno. Questa operazione è un esempio di \textit{local neighborhood operation}, operazione locale sui vicini.
@@ -604,11 +621,217 @@ L'ultimo passo consiste nel disegnare le linee di livello. L'implementazione ori
 Basandoci sulla descrizione dell'algoritmo nel capitolo precedente, ne presentiamo una traduzione in CUDA.
 
 \section{Ricerca ed estrazione dei bordi}
+
+\begin{lstlisting}[style=mystyle]
+__device__ int find_edges_left_right(double *brightness,
+        int w, int h, int x, int y, double threshold)
+{
+    double avg_left  = (brightness[idx(x-1, y-1, w, h)]
+                     +  brightness[idx(x-1, y  , w, h)]
+                     +  brightness[idx(x-1, y+1, w, h)]) / 3.0;
+    double avg_right = (brightness[idx(x+1, y-1, w, h)]
+                     +  brightness[idx(x+1, y  , w, h)]
+                     +  brightness[idx(x+1, y+1, w, h)]) / 3.0;
+    double overall   = (avg_left + avg_right) / 2.0;
+    return fabs(avg_left - avg_right) > CLAMP(threshold * overall,
+                                                0.0, 1.0);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle]
+__global__ void find_all_edges(double *brightness, int w, int h,
+        double threshold, u8 *edges)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    edges[IDX(x, y, w)] =
+        find_edges_left_right(brightness, w, h, x, y, threshold)
+     || find_edges_top_bottom(brightness, w, h, x, y, threshold)
+     || find_edges_upleft_downright(brightness, w, h, x, y, threshold)
+     || find_edges_downleft_upright(brightness, w, h, x, y, threshold);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle]
+__global__ void draw_contour_map_kernel(i32 *web, int width, int num_lines,
+                                        i32 max_elevation, i32 min_elevation, u8 *image_output)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int i = IDX(x, y, width);
+    i32 range    = max_elevation - min_elevation,
+        interval = range / num_lines;
+    image_output[i] = ((web[i] - min_elevation) % interval) == 0;
+}
+
+void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_output)
+{
+    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
+    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
+    i32 immax = image_max(web, width, height),
+        immin = image_min(web, width, height);
+    draw_contour_map_kernel<<<num_blocks, BLOCK_DIM_2D>>>(web, width, num_lines, immax, immin, image_output);
+}
+\end{lstlisting}
+
 \section{Ricerca di corrispondenze tra i bordi}
+
+\begin{lstlisting}[style=mystyle]
+__device__ u8 *matches[NUM_SHIFTS];
+
+void allocate_matches(int width, int height)
+{
+    u8 *tmp[NUM_SHIFTS];
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        tmp[i] = ALLOCATE_GPU(u8, width * height);
+    cudaMemcpyToSymbol(matches, tmp, sizeof(tmp));
+}
+
+void free_matches()
+{
+    u8 *tmp[NUM_SHIFTS];
+    cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp));
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        cudaFree(tmp[i]);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle]
+__global__ void fillup_matches(u8 *left_edges, u8 *right_edges,
+        int width, int height)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int index = IDX(x, y, width);
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        int shift = idx(x+i, y, width, height);
+        // ^ the +i accomplishes the sliding process
+        matches[i][index] = left_edges[index] == right_edges[shift];
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle]
+__device__ i32 *scores[NUM_SHIFTS];
+
+void allocate_scores(int width, int height)
+{
+    i32 *tmp[NUM_SHIFTS];
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        tmp[i] = ALLOCATE_GPU(i32, width * height);
+    cudaMemcpyToSymbol(scores, tmp, sizeof(tmp));
+}
+
+void free_scores()
+{
+    i32 *tmp[NUM_SHIFTS];
+    cudaMemcpyFromSymbol(tmp, scores, sizeof(tmp));
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        cudaFree(tmp[i]);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle]
+__global__ void addup_pixels_in_square(int i, int width, int height,
+        int square_width, i32 *total)
+{
+    u8 *pixels = matches[i];
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int cur = IDX(x, y, width);
+    int half = square_width / 2;
+    for (int sy = 0; sy < square_width; sy++) {
+        for (int sx = 0; sx < square_width; sx++) {
+            int rel = idx(x + sx - half, y + sy - half, width, height);
+            total[cur] += (i32) pixels[rel];
+        }
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle]
+__global__ void record_score(int i, i32 *sum, int width, int height)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int index = IDX(x, y, width);
+    // record a score whenever there was a match-up
+    if (matches[i][index] == 1)
+        scores[i][index] = sum[index];
+}
+
+void fillup_scores(int width, int height, int square_width, i32 *sum)
+{
+    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
+    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
+    for (int i = 0; i < NUM_SHIFTS; i++) {
+        cudaMemset(sum, 0, sizeof(sum[0]) * width * height);
+        addup_pixels_in_square<<<num_blocks, BLOCK_DIM_2D>>>(
+            i, width, height, square_width, sum
+        );
+        record_score<<<num_blocks, BLOCK_DIM_2D>>>(i, sum, width, height);
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle]
+__global__ void find_highest_scoring_shifts(i32 *best_scores,
+        i32 *winning_shifts, int width, int height)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int index = IDX(x, y, width);
+    // the following loop makes sure that each pixel in the best_scores
+    // image contains the maximum score found at any shift.
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        if (scores[i][index] > best_scores[index])
+            best_scores[index] = scores[i][index];
+    __syncthreads();
+    for (int i = 0; i < NUM_SHIFTS; i++)
+        if (scores[i][index] == best_scores[index])
+            winning_shifts[index] = i+1;
+}
+\end{lstlisting}
+
 \section{Disegno delle linee di livello}
+
+\begin{lstlisting}[style=mystyle]
+__global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if (tmp[IDX(x, y, width)] == 0) {
+        web[IDX(x, y, width)] =
+            (tmp[IDX(x+1, y,   width)]
+           + tmp[IDX(x,   y+1, width)]
+           + tmp[IDX(x-1, y,   width)]
+           + tmp[IDX(x,   y-1, width)]) / 4;
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=mystyle]
+i32 *fill_web_holes(i32 *web, int width, int height, int times)
+{
+    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
+    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
+    i32 *tmp = ALLOCATE_GPU(i32, width * height);
+    cudaMemcpy(tmp, web, sizeof(web[0]) * width * height,
+                cudaMemcpyDeviceToDevice);
+    for (int i = 0; i < times; i++) {
+        fill_web_holes_step<<<num_blocks, BLOCK_DIM_2D>>>(
+            web, tmp, width
+        );
+        SWAP(web, tmp, i32 *);
+    }
+    cudaFree(tmp);
+    return web;
+}
+\end{lstlisting}
+
 \section{Ottimizzazioni}
 
-
+% ghost stuff, etc...
 
 \chapter{Valutazione delle prestazioni}
 
