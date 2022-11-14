@@ -11,7 +11,7 @@ test_program() {
     echo "scale=4; $time_sum / $num_tests" | bc -l
 }
 
-# test_program ../timing/stereomatch
+test_program ../timing/stereomatch
 test_program ../timing/stereomatch-ghost
-# test_program ../timing/stereopar
-# test_program ../timing/stereopar-ghost
+test_program ../timing/stereopar
+test_program ../timing/stereopar-ghost
