@@ -295,7 +295,6 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     fillup_matches(first_edges, second_edges, width, height);
     write_matches(width, height);
 
-    // third step: compute scores for each pixel
     fillup_scores(width, height, params.square_width, buf);
     write_scores(width, height);
     memset(buf, 0, sizeof(buf[0]) * width * height);
@@ -303,7 +302,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     write_image(buf, width, height, 0, IMTYPE_GRAY_INT, make_filename("score_best", SERGHOST, 0));
     write_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", SERGHOST, 1));
 
-    // fourth step: draw contour lines
+    // third step: draw contour lines
     web = fill_web_holes(web, width, height, params.times);
     write_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", SERGHOST, 2));
     draw_contour_map(web, width, height, params.lines_to_draw, out);

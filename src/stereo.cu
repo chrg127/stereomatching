@@ -9,6 +9,10 @@
 #define DEFAULT_TIMES 32
 #define DEFAULT_LINES 10
 
+#define DECLARE_BLOCKS(w, h) \
+    const int BLOCKS_WIDTH = ceil_div(width, BLOCK_DIM_SIDE);   \
+    const int BLOCKS_HEIGHT = ceil_div(height, BLOCK_DIM_SIDE); \
+    const dim3 NUM_BLOCKS = dim3(BLOCKS_WIDTH, BLOCKS_HEIGHT);
 
 
 // step 1
@@ -176,13 +180,12 @@ __global__ void record_score(int i, i32 *sum, int width, int height)
 
 void fillup_scores(int width, int height, int square_width, i32 *sum)
 {
-    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
-    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
+    DECLARE_BLOCKS(width, height)
     for (int i = 0; i < NUM_SHIFTS; i++) {
         cudaMemset(sum, 0, sizeof(sum[0]) * width * height);
-        addup_pixels_in_square<<<num_blocks, BLOCK_DIM_2D>>>(i, width, height, square_width, sum);
+        addup_pixels_in_square<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(i, width, height, square_width, sum);
         write_gpu_image(sum, width, height, 0, IMTYPE_GRAY_INT, make_filename("score_all", PAR, i));
-        record_score<<<num_blocks, BLOCK_DIM_2D>>>(i, sum, width, height);
+        record_score<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(i, sum, width, height);
     }
 }
 
@@ -219,21 +222,18 @@ __global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width)
     }
 }
 
-i32 *fill_web_holes(i32 *web, int width, int height, int times)
+i32 *fill_web_holes(i32 *web, i32 *tmp, int width, int height, int times)
 {
     // each time though the loop, every pixel not on the web (i.e., every pixel that is not
     // zero to begin with) takes on the average elevation of its four neighbors. therefore,
     // the web pixels gradually "spread" their elevations across the holes, while they
     // themselves remain unchanged.
-    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
-    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
-    i32 *tmp = ALLOCATE_GPU(i32, width * height);
+    DECLARE_BLOCKS(width, height)
     checkCudaErrors(cudaMemcpy(tmp, web, sizeof(web[0]) * width * height, cudaMemcpyDeviceToDevice));
     for (int i = 0; i < times; i++) {
-        fill_web_holes_step<<<num_blocks, BLOCK_DIM_2D>>>(web, tmp, width);
+        fill_web_holes_step<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(web, tmp, width);
         SWAP(web, tmp, i32 *);
     }
-    cudaFree(tmp);
     return web;
 }
 
@@ -257,11 +257,10 @@ __global__ void draw_contour_map_kernel(i32 *web, int width, int num_lines,
 
 void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_output)
 {
-    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
-    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
+    DECLARE_BLOCKS(width, height)
     i32 immax = image_max(web, width, height),
         immin = image_min(web, width, height);
-    draw_contour_map_kernel<<<num_blocks, BLOCK_DIM_2D>>>(web, width, num_lines, immax, immin, image_output);
+    draw_contour_map_kernel<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(web, width, num_lines, immax, immin, image_output);
 }
 
 
@@ -275,13 +274,12 @@ typedef struct AlgorithmParams {
 
 void algorithm(double *first, double *second, int width, int height, AlgorithmParams params)
 {
-    const int num_blocks_side = ceil_div(width, BLOCK_DIM_SIDE);
-    const dim3 num_blocks = dim3(num_blocks_side, num_blocks_side);
-
+    DECLARE_BLOCKS(width, height)
     u8 *first_edges  = ALLOCATE_GPU(u8, width * height),
        *second_edges = ALLOCATE_GPU(u8, width * height);
-    i32 *buf         = ALLOCATE_GPU(i32, width * height),
-        *web         = ALLOCATE_GPU(i32, width * height);
+    i32 *buf         = ALLOCATE_GPU(i32, width * height);
+    i32 *web         = ALLOCATE_GPU(i32, width * height);
+    i32 *tmp         = ALLOCATE_GPU(i32, width * height);
     u8 *out          = ALLOCATE_GPU(u8, width * height);
     allocate_matches(width, height);
     allocate_scores(width, height);
@@ -289,25 +287,24 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     double t1 = get_time();
 
     // first step: find edges in both images
-    find_all_edges<<<num_blocks, BLOCK_DIM_2D>>>(first,  width, height, params.threshold, first_edges);
-    find_all_edges<<<num_blocks, BLOCK_DIM_2D>>>(second, width, height, params.threshold, second_edges);
+    find_all_edges<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(first,  width, height, params.threshold, first_edges);
+    find_all_edges<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(second, width, height, params.threshold, second_edges);
     write_gpu_image(first_edges,  width, height, 0, IMTYPE_BINARY, make_filename("edges", PAR, 1));
     write_gpu_image(second_edges, width, height, 0, IMTYPE_BINARY, make_filename("edges", PAR, 2));
 
     // second step: match edges between images
-    fillup_matches<<<num_blocks, BLOCK_DIM_2D>>>(first_edges, second_edges, width, height);
+    fillup_matches<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(first_edges, second_edges, width, height);
     write_matches(width, height);
 
-    // third step: compute scores for each pixel
     fillup_scores(width, height, params.square_width, buf);
     write_scores(width, height);
     cudaMemset(buf, 0, sizeof(buf[0]) * width * height);
-    find_highest_scoring_shifts<<<num_blocks, BLOCK_DIM_2D>>>(buf, web, width, height);
+    find_highest_scoring_shifts<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(buf, web, width, height);
     write_gpu_image(buf, width, height, 0, IMTYPE_GRAY_INT, make_filename("score_best", PAR, 0));
     write_gpu_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", PAR, 1));
 
-    // fourth step: draw contour lines
-    web = fill_web_holes(web, width, height, params.times);
+    // third step: draw contour lines
+    web = fill_web_holes(web, tmp, width, height, params.times);
     write_gpu_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", PAR, 2));
     draw_contour_map(web, width, height, params.lines_to_draw, out);
     write_gpu_image(out, width, height, 0, IMTYPE_BINARY, make_filename("output", PAR, 0));
@@ -319,9 +316,10 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
 
     checkCudaErrors(cudaFree(first_edges));
     checkCudaErrors(cudaFree(second_edges));
-    checkCudaErrors(cudaFree(buf));
     checkCudaErrors(cudaFree(web));
     checkCudaErrors(cudaFree(out));
+    checkCudaErrors(cudaFree(buf));
+    checkCudaErrors(cudaFree(tmp));
     free_matches();
     free_scores();
 }
