@@ -137,16 +137,17 @@
 \end{center}
 
 \clearpage{\pagestyle{empty}\cleardoublepage}
-
-% %%% pagina della dedica %%%
-\thispagestyle{empty}
-\topmargin=6.5cm
-\raggedleft
-\large
-\em
-(Dedica)
-\clearpage{\pagestyle{empty}\cleardoublepage}
 \end{titlepage}
+
+% % %%% pagina della dedica %%%
+% \thispagestyle{empty}
+% \topmargin=6.5cm
+% \raggedleft
+% \large
+% \em
+% (Dedica)
+% \clearpage{\pagestyle{empty}\cleardoublepage}
+% \end{titlepage}
 
 % %%% indice %%%
 
@@ -199,7 +200,7 @@ La programmazione parallela è un paradigma di programmazione che sfrutta l'esec
 
 \section{Evoluzione dei Processi}
 
-Perché mai si dovrebbe ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Questa domanda trova risposta nello studio dell'evoluzione dei processori: per anni si è tenuto conto della cosiddetta ``Legge di Moore'', che ipotizza che ``il numero di transistor contenuti all'interno di un chip raddoppia ogni due anni''. Questa legge fu enunciata da Gordon E. Moore nel 1965 e spiega che effettivamente le prestazioni di un chip si duplicavano ogni due anni \cite{moorelaw}. La sua osservazione si rivelò corretta per due decenni, ma intorno agli anni 2000 questo andamento iniziò a calare. I motivi principali di questo calo sono:
+Perché mai si dovrebbe ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Questa domanda trova risposta nello studio dell'evoluzione dei processori: per anni si è tenuto conto della cosiddetta ``Legge di Moore'', che ipotizza che ``il numero di transistor contenuti all'interno di un chip raddoppia ogni due anni''. Questa legge fu enunciata da Gordon E. Moore nel 1965 e spiega che effettivamente le prestazioni di un chip si duplicavano ogni due anni. La sua osservazione si rivelò corretta per due decenni, ma intorno agli anni 2000 questo andamento iniziò a calare. I motivi principali di questo calo sono:
 
 \begin{itemize}
     \item La dimensione dei transistor. Il miglior modo per aumentare il numero di transistor è di renderli sempre più piccoli, ma esiste un limite fisico della grandezza minima. I transistor di oggi vanno dai 20 nm ai 3 nm;
@@ -232,7 +233,7 @@ Esistono diverse tipologie di architetture parallele; in questa relazione ci int
 
 Il nome di queste architetture potrebbe dare confusione dato che, in generale, la funzione di una scheda video è strettamente legata alla grafica. Il motivo per cui sono interessanti è per la presenza di un grande numero di core all'interno della scheda, molto più grande del numero di core presenti in una normale CPU (si tratta di due ordini di grandezza di differenza); questo implica che possono essere molto utili per programmi paralleli con dati di grandi dimensioni. Le prime ricerche a riguardo furono svolte nel 2001 e nel 2003; diventarono più popolari nel 2007 con l'avvento di CUDA.
 
-CUDA (Compute Unified Device Architecture) è una piattaforma per il calcolo parallelo sviluppata da NVIDIA. Si tratta di una piattaforma che consente l'utilizzo delle schede grafiche NVIDIA per eseguire programmi paralleli, sfruttando appieno le loro potenzialità. La prima versione di CUDA è stata pubblicata nel 2007 \cite{CUDA}.
+CUDA (Compute Unified Device Architecture) è una piattaforma per il calcolo parallelo sviluppata da NVIDIA. Si tratta di una piattaforma che consente l'utilizzo delle schede grafiche NVIDIA per eseguire programmi paralleli, sfruttando appieno le loro potenzialità. La prima versione di CUDA è stata pubblicata nel 2007.
 
 I concetti di base di CUDA sono molto semplici: CUDA prevede una separazione tra l'\textit{host}, che corrisponde la CPU, e il \textit{device}, che corrisponde ad una o più schede grafiche. Queste sono considerate unità indipendenti, che cooperano in modo asincrono: in particolare, l'\textit{host} ha la possibilità di invocare funzioni specifiche che vengono eseguite sul \textit{device}. Queste funzioni vengono dette \textit{kernel}; appena vengono chiamate, queste vengono eseguite in modo asincrono e restituiscono subito il controllo all'\textit{host}.
 
@@ -326,7 +327,7 @@ L'estensione più importante in CUDA riguarda il modo in cui si chiamano le funz
 
 La visione artificiale è il campo dell'informatica che si occupa di analizzare ed interpretare le immagini per ottenere un modello approssimato del mondo reale. In sostanza, si occupa di capire ed automatizzare compiti che il sistema di visione umano riesce a fare.
 
-La Stereo Vision è una sottobranca della visione artificiale che si occupa di ottenere informazioni spaziali utilizzando due immagini (da qui viene il termine \textit{stereo}) \cite{stereovision}.
+La Stereo Vision è una sottobranca della visione artificiale che si occupa di ottenere informazioni spaziali utilizzando due immagini (da qui viene il termine \textit{stereo}, che significa \textit{due}).
 
 Gli uomini posseggono due occhi frontali che vedono il mondo esterno da due posizioni differenti: queste due posizioni vengono combinate, usando le piccole differenze presenti tra le due per recuperare le informazioni in 3D sull'ambiente esterno. L'idea di base della Stereo Vision è la simulazione di questo sistema: per far ciò si utilizzano due fotocamere, disposte orizzontalmente l'una all'altra, in modo che fungano come da occhi umani che guardano la scena di cui si è interessati. Le due immagini che si ottengono dalle fotocamere sono chiamate \textit{Stereo Pair}.
 
@@ -398,7 +399,7 @@ Ogni processore operava su un solo elemento: se c'erano meno di 65535 elementi, 
 
 \section{*Lisp}
 
-Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John McCarthy. Si tratta di un linguaggio basato sui paradigmi imperativo e funzionale, con una sintassi molto unica \cite{lispwp}. Il seguente codice presenta un esempio del linguaggio; si tratta di una funzione che trova se un elemento esiste in un array:
+Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John McCarthy. Si tratta di un linguaggio basato sui paradigmi imperativo e funzionale, con una sintassi molto unica. Il seguente codice presenta un esempio del linguaggio; si tratta di una funzione che trova se un elemento esiste in un array:
 
 \newpage
 
@@ -842,6 +843,11 @@ La \textit{ghost area} potrebbe quindi sostituire il \textit{wrap-around} presen
 
 Un'altra ottimizzazione sarebbe provare a rimuovere il \textit{double buffering} nella funzione di riempimento dei buchi e utilizzare sincronizzazioni esplicite. Si dubita però che questo porti a prestazioni migliorate. Questa tecnica però potrebbe portare ad un leggero miglioramento nell'uso della memoria.
 
+\section{Altri dettagli}
+
+Dal punto di vista della \textit{Stereo Vision}, i risultati di questo algoritmo non sembrano molto buoni: le immagini che si ottengono sono molto rumorose. Non si capisce bene se questo sia colpa dell'algoritmo o dell'implementazione in CUDA; dato che lo scopo, però, è quello la traduzione dell'algoritmo, si è deciso di non indagare su questo problema.
+
+
 \chapter{Valutazione delle prestazioni}
 
 \section{Descrizione dei test}
@@ -870,9 +876,33 @@ Solitamente il \textit{throughput} aumenta con l'aumentare dell'input fino a rag
 
 Di seguito si possono vedere i dati raccolti sia per lo \textit{Speedup} che per il \textit{throughput} in forma di grafici.
 
-% graphs
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{graphs_serial.png}
+    \caption{I tempi di esecuzione per i programmi seriali.}
+    \label{img:times}
+\end{figure}
 
-% some words about results
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{graphs_parallel.png}
+    \caption{I tempi di esecuzione per i programmi paralleli.}
+    \label{img:times}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{speedup.png}
+    \caption[Gli Gli speedup tra i programmi seriali e paralleli.]{Gli speedup tra i programmi seriali e paralleli. Gli speedup sono tra i due programmi senza \textit{ghost area} e i due programmi con la \textit{ghost area}.}
+    \label{img:speedup}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{throughput.png}
+    \caption{Il throughput nei due programmi paralleli.}
+    \label{}
+\end{figure}
 
 \chapter*{Conclusioni}
 
