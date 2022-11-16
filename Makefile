@@ -1,3 +1,6 @@
+# to build for debugging, use 'make'
+# to build for testing performance, use 'make build=timing'
+
 name 		   := stereomatch
 name_par 	   := stereopar
 name_ghost     := stereomatch-ghost
@@ -6,7 +9,7 @@ name_ghost_par := stereopar-ghost
 build 		 := debug
 CC 			 := gcc
 NVCC 		 := nvcc
-CFLAGS 		 := -g -Wall -Wextra -pedantic -std=gnu11 -Wno-unused-parameter
+CFLAGS 		 := -Wall -Wextra -pedantic -std=gnu11 -Wno-unused-parameter
 NVFLAGS 	 :=
 flags_deps   = -MMD -MP -MF $(@:.o=.d)
 LDLIBS 		 := -lm

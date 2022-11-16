@@ -16,6 +16,12 @@
     const int BLOCKS_HEIGHT = ceil_div(height, BLOCK_DIM_SIDE); \
     const dim3 NUM_BLOCKS = dim3(BLOCKS_WIDTH, BLOCKS_HEIGHT);
 
+#define DECLARE_INDEXES(w, h) \
+    int x = threadIdx.x + blockIdx.x * blockDim.x;  \
+    int y = threadIdx.y + blockIdx.y * blockDim.y;  \
+    if (x < width || y < width)                     \
+        return;
+
 
 
 // step 1
@@ -70,8 +76,7 @@ __device__ int find_edges_downleft_upright(double *brightness, int width, int x,
 
 __global__ void find_all_edges(double *brightness, int width, int height, double threshold, u8 *edges)
 {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    DECLARE_INDEXES(width, height)
     edges[IGX(x, y, width, GHOST_SIZE_EDGES)] =
         find_edges_left_right      (brightness, width, x, y, threshold)
      || find_edges_top_bottom      (brightness, width, x, y, threshold)
@@ -114,8 +119,7 @@ void free_matches(int width)
 
 __global__ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
 {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    DECLARE_INDEXES(width, height)
     for (int i = 0; i < NUM_SHIFTS; i++)
         matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] =
             left_edges [IGX(x,   y, width, GHOST_SIZE_EDGES)]
@@ -159,8 +163,7 @@ void free_scores()
 __global__ void addup_pixels_in_square(int i, int width, int height, int square_width, i32 *total)
 {
     u8 *pixels = matches[i];
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    DECLARE_INDEXES(width, height)
     int cur = IDX(x, y, width);
     int half = square_width / 2;
     for (int sy = 0; sy < square_width; sy++) {
@@ -175,8 +178,7 @@ __global__ void addup_pixels_in_square(int i, int width, int height, int square_
 
 __global__ void record_score(int i, i32 *sum, int width, int height)
 {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    DECLARE_INDEXES(width, height)
     int index = IDX(x, y, width);
     // record a score whenever there was a match-up
     if (matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] == 1)
@@ -196,8 +198,7 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
 
 __global__ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int width, int height)
 {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    DECLARE_INDEXES(width, height)
     int index = IDX(x, y, width);
     // the following loop makes sure that each pixel in the best_scores
     // image contains the maximum score found at any shift.
@@ -216,8 +217,7 @@ __global__ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shift
 
 __global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width)
 {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    DECLARE_INDEXES(width, height)
     if (tmp[IDX(x, y, width)] == 0) {
         web[IDX(x, y, width)] =
             (tmp[IDX(x+1, y,   width)]
@@ -252,8 +252,7 @@ __global__ void draw_contour_map_kernel(i32 *web, int width, int num_lines,
 {
     // the idea is to divide the whole range of elevations into a number of intervals,
     // then to draw a contour line at every interval.
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    DECLARE_INDEXES(width, height)
     int i = IDX(x, y, width);
     i32 range    = max_elevation - min_elevation,
         interval = range / num_lines;
