@@ -6,7 +6,6 @@
 \usepackage{float}
 \usepackage{indentfirst}                        % per avere l'indentazione all'inizio dei capitoli
 \usepackage{listings}                           % per il codice
-%\usepackage{showkeys}                          % per mostrare le etichette
 \usepackage{graphicx}                           % libreria per inserire grafici
 \usepackage{newlfont}                           % libreria per utilizzare font particolari, ad esempio \textsc{}
 \usepackage{amssymb}                            % librerie matematiche
@@ -15,15 +14,10 @@
 \usepackage{amsthm}
 \usepackage{cite}
 \usepackage{listings}
-\usepackage{url}
-\usepackage{hyperref}
+\usepackage{xurl}                               % per gli url nella bibliografia e per splittarli nel testo
+\usepackage{hyperref}                           % per rendere gli url cliccabili
 \usepackage[square,numbers,sort]{natbib}
 \usepackage{xcolor}
-\usepackage{stackengine}
-\usepackage{copyrightbox}
-\usepackage{caption}
-
-\bibliographystyle{unsrtnat}
 
 \lstset{
     basicstyle=\ttfamily,
@@ -37,7 +31,9 @@
     showtabs=false,
     tabsize=4,
     aboveskip=1em,
-    belowskip=1em
+    belowskip=1em,
+    numbers=left,
+    numberstyle=\ttfamily
 }
 
 \lstdefinestyle{mystyle}{
@@ -52,25 +48,12 @@
     showtabs=false,
     tabsize=4,
     aboveskip=1em,
-    belowskip=1em
+    belowskip=1em,
+    numbers=left,
+    numberstyle=\ttfamily
 }
 
-\lstdefinestyle{style2}{
-    basicstyle=\ttfamily\small,
-    columns=fullflexible,
-    breakatwhitespace=false,
-    breaklines=true,
-    captionpos=b,
-    keepspaces=true,
-    showspaces=false,
-    showstringspaces=false,
-    showtabs=false,
-    tabsize=4,
-    aboveskip=1em,
-    belowskip=1em
-}
-
-\newcommand{\source}[1]{\caption*{\hfill \scriptsize Fonte: {#1}} }
+\newcommand{\source}[1]{\vspace{-10pt} \caption*{\scriptsize Fonte: {#1}} }
 
 \oddsidemargin=30pt
 \evensidemargin=20pt
@@ -180,7 +163,7 @@
 
 La \textit{Stereo Vision} è un popolare argomento di ricerca nel campo della Visione Artificiale; esso consiste nell'usare due immagini di una stessa scena, prodotte da due fotocamere diverse, per estrarre informazioni in 3D. L'idea di base della \textit{Stereo Vision} è la simulazione della visione binoculare umana: le due fotocamere sono disposte in orizzontale per fungere da ``occhi'' che guardano la scena in 3D. Confrontando le due immagini ottenute, si possono ottenere informazioni riguardo alle posizioni degli oggetti della scena.
 
-In questa relazione presenteremo un algoritmo di Stereo Vision: si tratta di un algoritmo parallelo che ha come obiettivo di tracciare le linee di livello di un area geografica. L'algoritmo in genesi era stato implementato per la \textit{Connection Machine CM-2}, un supercomputer sviluppato negli anni 80, ed era espresso in \textbf{*Lisp}, un linguaggio derivato dal Lisp e ideato per la macchina stessa.
+In questa relazione presenteremo un algoritmo di Stereo Vision: si tratta di un algoritmo parallelo che ha come obiettivo di tracciare le linee di livello di un area geografica. L'algoritmo in origine era stato implementato per la \textit{Connection Machine CM-2}, un supercomputer sviluppato negli anni 80, ed era espresso in \textbf{*Lisp}, un linguaggio derivato dal Lisp e ideato per la macchina stessa.
 
 Questa relazione tratta anche la traduzione e l'implementazione dell'algoritmo in \textbf{CUDA}, ovvero un'architettura hardware per l'elaborazione parallela sviluppata da NVIDIA, che consente di eseguire codice parallelo su GPU. Si darà inoltre uno sguardo alle difficoltà che sono state riscontrate nella traduzione da *Lisp a CUDA.
 
@@ -194,13 +177,13 @@ Questa relazione tratta anche la traduzione e l'implementazione dell'algoritmo i
 
 \lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries\rightmark}}
 
-La programmazione parallela è un paradigma di programmazione che sfrutta l'esecuzione parallela di processori per ottenere prestazioni migliori e risultati nel minor tempo possibile. I calcoli vengono eseguiti in parallelo, ovvero vengono eseguiti simultaneamente su più processi. Questo paradigma si colloca all'interno dell'High Performance Computing (HPC), una materia che studia le tecniche e soluzioni hardware che facilitano l'esecuzione parallela dei calcoli.
+La programmazione parallela è un paradigma di programmazione che sfrutta l'esecuzione parallela di processori per ottenere prestazioni migliori e risultati nel minor tempo possibile. I calcoli vengono eseguiti in parallelo, ovvero vengono eseguiti simultaneamente su più processori. Questo paradigma si colloca all'interno dell'High Performance Computing (HPC), una materia che studia le tecniche e soluzioni hardware e software che facilitano l'esecuzione parallela dei calcoli.
 
 
 
-\section{Evoluzione dei Processi}
+\section{Evoluzione dei Processori}
 
-Perché mai si dovrebbe ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Questa domanda trova risposta nello studio dell'evoluzione dei processori: per anni si è tenuto conto della cosiddetta ``Legge di Moore'', che ipotizza che ``il numero di transistor contenuti all'interno di un chip raddoppia ogni due anni''. Questa legge fu enunciata da Gordon E. Moore nel 1965 e spiega che effettivamente le prestazioni di un chip si duplicavano ogni due anni. La sua osservazione si rivelò corretta per due decenni, ma intorno agli anni 2000 questo andamento iniziò a calare. I motivi principali di questo calo sono:
+Perché ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Questa domanda trova risposta nello studio dell'evoluzione dei processori: per anni si è tenuto conto della cosiddetta ``Legge di Moore'', che ipotizza che ``il numero di transistor contenuti all'interno di un chip raddoppia ogni due anni''. Questa legge fu enunciata da Gordon E. Moore nel 1965 e spiega che effettivamente le prestazioni di un chip si raddoppiavano ogni due anni. La sua osservazione si rivelò corretta per due decenni, ma intorno agli anni 2000 questo andamento iniziò a calare. I motivi principali di questo calo sono:
 
 \begin{itemize}
     \item La dimensione dei transistor. Il miglior modo per aumentare il numero di transistor è di renderli sempre più piccoli, ma esiste un limite fisico della grandezza minima. I transistor di oggi vanno dai 20 nm ai 3 nm;
@@ -210,12 +193,12 @@ Perché mai si dovrebbe ricorrere all'esecuzione parallela per ottenere prestazi
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{50-years-processor-trend.png}
-    \source{\url{https://github.com/karlrupp/microprocessor-trend-data}}
     \caption{Evoluzione delle caratteristiche dei processori}
+    \source{\url{https://github.com/karlrupp/microprocessor-trend-data}}
     \label{img:trend_proc}
 \end{figure}
 
-Al posto di aumentare il numero di transistor, negli ultimi due decenni sono state ideate nuove architetture che sfruttano il parallelismo: queste sono le architetture parallele, anche chiamate multicore o multiprocessore. Queste architetture sono sviluppate aggiungendo più processori logici dentro ad un chip. Le prestazioni che si possono ottenere con le architetture parallele derivano quindi dalla suddivisione del lavoro che è distribuito in più unità operazionali.
+Al posto di aumentare il numero di transistor, negli ultimi due decenni sono state ideate nuove architetture che sfruttano il parallelismo: queste sono le architetture parallele, anche chiamate multicore o multiprocessore. Queste architetture sono sviluppate aggiungendo più processori fisici dentro ad un chip. Le prestazioni che si possono ottenere con le architetture parallele derivano quindi dalla suddivisione del lavoro che è distribuito in più unità operazionali.
 
 Nella figura \ref{img:trend_proc} viene mostrata l'evoluzione dei processori nel corso degli ultimi decenni. In particolare, si può notare come la frequenza media dei processori si sia stabilizzata, mentre più o meno dalla metà degli anni 2000 sia cresciuto il numero di core logici, a seguito di ricerche sullo sviluppo delle architetture parallele.
 
@@ -226,12 +209,14 @@ Esistono diverse tipologie di architetture parallele; in questa relazione ci int
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{cpu-gpu-comparison.png}
-    \source{\url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html}}
     \caption[Confronto tra CPU e GPU]{Confronto tra l'architettura di una CPU e quella di una GPU. Da notare l'elevato numero di core della GPU.}
+    \source{\url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html}}
     \label{img:cpu-gpu-comparison}
 \end{figure}
 
-Il nome di queste architetture potrebbe dare confusione dato che, in generale, la funzione di una scheda video è strettamente legata alla grafica. Il motivo per cui sono interessanti è per la presenza di un grande numero di core all'interno della scheda, molto più grande del numero di core presenti in una normale CPU (si tratta di due ordini di grandezza di differenza); questo implica che possono essere molto utili per programmi paralleli con dati di grandi dimensioni. Le prime ricerche a riguardo furono svolte nel 2001 e nel 2003; diventarono più popolari nel 2007 con l'avvento di CUDA.
+Il nome di queste architetture potrebbe dare confusione dato che, in generale, la funzione di una scheda video è strettamente legata alla grafica. Il motivo per cui sono interessanti è per la presenza di un grande numero di core all'interno della scheda, molto più grande del numero di core presenti in una normale CPU (si tratta di due ordini di grandezza di differenza); questo implica che possono essere molto utili per programmi paralleli con dati di grandi dimensioni. La figura \ref{img:cpu-gpu-comparison} mostra le due architetture a confronto.
+
+Le prime ricerche riguardanti la programmazione generale su GPU furono svolte nel 2001 e nel 2003; diventarono più popolari nel 2007 con l'avvento di CUDA.
 
 CUDA (Compute Unified Device Architecture) è una piattaforma per il calcolo parallelo sviluppata da NVIDIA. Si tratta di una piattaforma che consente l'utilizzo delle schede grafiche NVIDIA per eseguire programmi paralleli, sfruttando appieno le loro potenzialità. La prima versione di CUDA è stata pubblicata nel 2007.
 
@@ -242,64 +227,66 @@ I concetti di base di CUDA sono molto semplici: CUDA prevede una separazione tra
 \begin{figure}[h]
     \centering
     \includegraphics[width=6.5cm]{grids-and-blocks.png}
-    \source{\url{https://ipython-books.github.io/58-writing-massively-parallel-code-for-nvidia-graphics-cards-gpus-with-cuda/}}
     \caption{Gerarchia dei thread in CUDA}
+    \source{\url{https://ipython-books.github.io/58-writing-massively-parallel-code-for-nvidia-graphics-cards-gpus-with-cuda/}}
     \label{img:grids-and-blocks}
 \end{figure}
 
-In CUDA, l'unità minima di elaborazione è il \textbf{thread}. CUDA raggruppa logicamente i thread in più \textbf{blocchi}, e a loro volta i blocchi sono raggruppati in \textbf{griglie} \cite{cudaguide}.
+In CUDA, l'unità minima di elaborazione è il \textbf{thread}. CUDA raggruppa logicamente i thread in più \textbf{blocchi}, e a loro volta i blocchi sono raggruppati in una \textbf{griglia} \cite{cudaguide}. La figura \ref{img:grids-and-blocks} mostra sinteticamente questa gerarchia.
 
 Un blocco è considerato un unità indipendente di lavoro: esso può avere una, due o tre dimensioni, il che significa che può essere indicizzato in più dimensioni in base all'occorrenza; ogni blocco può essere eseguito in qualunque ordine all'interno di una griglia. Il numero di thread in un blocco è limitato a va fino a 1024 thread per blocco.
 
 Una griglia rappresenta un lavoro affidato alla GPU: anch'esso può essere tridimensionale e non ha limiti sul numero di blocchi.
 
-Lo \textbf{scheduling dei thread} in CUDA è completamente automatico: non è possibile scegliere quali e quanti core (che in CUDA vengono chiamati \textit{Streaming Multiprocessor} debbano venire utilizzati.
+Lo \textbf{scheduling dei thread} in CUDA è completamente automatico: non è possibile scegliere quali e quanti core (che in CUDA vengono chiamati \textit{Streaming Multiprocessor}) debbano venire utilizzati.
 
 \subsection{Struttura e gestione della memoria}
 
 Quando si scrive un \textit{kernel}, non ci si deve mai preoccupare di come vengono gestiti i thread. Sarà l'hardware stesso a preoccuparsi, durante l'esecuzione, di effettuare lo scheduling migliore sfruttando al massimo l'hardware: in particolare, in CUDA esiste il concetto di \textit{warp}, che rappresenta l'unità minima di schedulazione e contiene un certo numero di thread (massimo 32). L'hardware raggruppa assieme in un \textit{warp} i thread che devono eseguire la stessa porzione di codice; i thread eseguono le istruzioni seguendo il paradigma SIMD.
 
-Nel caso ci sia una biforcazione nel flusso di controllo (causato, ad esempio, da costrutti \verb|if-else|), la condizione viene calcolata per ogni thread, dopodichè vengono eseguiti i thread per cui è stata verificata, mentre gli altri rimangono fermi. L'hardware comunque può trasferire i thread che sono rimasti fermi in altri warp.
+Nel caso ci sia una biforcazione nel flusso di controllo (causato, ad esempio, da costrutti \verb|if-else|), la condizione viene calcolata per ogni thread, dopodichè vengono eseguiti i thread per cui è stata verificata, mentre gli altri rimangono fermi. L'hardware comunque può trasferire i thread che sono rimasti fermi in altri warp. La figura \ref{img:warp-branch} mostra un esempio visuale del problema.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=6.5cm]{warp-branch.png}
-    \source{\url{https://www.researchgate.net/figure/Warp-divergence-due-to-if-else-statements_fig15_317608134}}
     \caption{Esecuzione di un thread in caso di biforcazione}
+    \source{\url{https://www.researchgate.net/figure/Warp-divergence-due-to-if-else-statements_fig15_317608134}}
     \label{img:warp-branch}
 \end{figure}
 
-La memoria in CUDA, riassunta nella figura \ref{img:memory-hierarchy}, è suddivisa in più tipi:
+La memoria in CUDA è suddivisa in più tipi:
 
 \begin{itemize}
-    \item \textbf{Memoria globale}: è la memoria più grande (alcuni GB). A questa memoria possono accedervi ogni thread di ogni blocco, ma presenta una latenza di accesso più alta;
-    \item \textbf{Memoria delle constanti}: una memoria persistente anch'essa accessibili da ogni thread, ma ci si può accedere in sola lettura. È più piccola, di soli 64 KB;
+    \item \textbf{Memoria globale}: è la memoria più grande (alcuni GB). A questa memoria possono accedere ogni thread di ogni blocco, ma presenta una latenza di accesso più alta;
+    \item \textbf{Memoria delle constanti}: una memoria persistente anch'essa accessibili da ogni thread, ma ci i thread possono accedere in sola lettura. L\'host può comunque accedere in scrittura. È più piccola, di soli 64 KB;
     \item \textbf{Memoria texture}: un'altra memoria di sola lettura e accessibile da tutti, ma è ottimizzata per le texture;
     \item \textbf{Memoria condivisa}: è una memoria molto veloce che viene condivisa tra tutti i thread di un solo blocco. Per blocco ci sono 48 KB di memoria condivisa;
     \item \textbf{Memoria locale}: una memoria dedicata per ogni thread, accessibile solo da esso. Non persiste tra l'esecuzione di due kernel;
 \end{itemize}
 
+La figura \ref{img:memory-hierarchy} mostra una rappresentazione visuale della memoria.
+
 \begin{figure}[h]
     \centering
     \includegraphics[width=8cm]{cuda-memory-hierarchy.jpg}
-    \source{\url{https://www.researchgate.net/figure/Memory-model-CUDA-memory-hierarchy_fig2_51529494}}
     \caption{La struttura della memoria in CUDA.}
+    \source{\url{https://www.researchgate.net/figure/Memory-model-CUDA-memory-hierarchy_fig2_51529494}}
     \label{img:memory-hierarchy}
 \end{figure}
 
 In CUDA va prestata particolare attenzione all'accesso della memoria. Infatti, quando un thread esegue un accesso alla memoria anche molto piccolo (4 byte), la GPU legge almeno 32 byte consecutivi. Una caratteristica molto importante è il \textbf{raggruppamento degli accessi}: se più thread accedono a posizioni di memoria consecutive, la GPU raggruppa questi accessi in una sola lettura.
 
+Questo in pratica significa che in CUDA il pattern di memorizzazione classico, ovvero l'Array-of-Structures, non è adeguato e si dovrebbe preferire la Structure-of-Arrays. Il primo consiste nel conversare i dati di un elemento (ad esempio un punto con coordinate x, y e z) in posizioni adiacenti di memoria: di conseguenza, un array di punti consisterà in un array di coordinate (x, y, z) che si ripete per ogni punto. Il secondo consiste nell'avere un array per ogni dato dell'elemento: si avrà un array per ogni coordinata X, coordinata Y e coordinata Z. La figura \ref{img:aos} mostra un confronto visuale dei due pattern.
+
+Immaginiamo di avere più thread che devono leggere ognuno le coordinate X di ogni punto. Se i dati sono memorizzati mediante AoS, i valori in sè sarebbero più lontani tra loro, con la conseguenza di avere maggiori letture e maggior utilizzo del bus nel programma. Al contrario, con SoA si avrebbe tutti elementi adiacenti e si avrebbe bisogno di meno letture.
+
 \begin{figure}
     \centering
     \includegraphics[width=5cm]{aos.jpg}
-    \source{\url{https://asc.ziti.uni-heidelberg.de/en/node/18}}
     \caption{AoS e SoA a confronto}
+    \source{\url{https://asc.ziti.uni-heidelberg.de/en/node/18}}
     \label{img:aos}
 \end{figure}
-
-Questo in pratica significa che in CUDA il pattern di memorizzazione classico, ovvero l'Array-of-Structures, non è adeguato e si dovrebbe preferire la Structure-of-Arrays. Il primo consiste nel conversare i dati di un elemento (ad esempio un punto con coordinate x, y e z) in posizioni adiacenti di memoria: di conseguenza, un array di punti consisterà in un array di coordinate (x, y, z) che si ripete per ogni punto. Il secondo consiste nell'avere un array per ogni dato dell'elemento: si avrà un array per ogni coordinata X, coordinata Y e coordinata Z. La figura \ref{img:aos} mostra un confronto visuale dei due pattern.
-
-Immaginiamo di avere più thread che devono leggere ognuno le coordinate X di ogni punto. Se i dati sono memorizzati mediante AoS, i valori in sè sarebbero più lontani tra loro, con conseguenza maggiori letture e maggior utilizzo del bus. Al contrario, con SoA si avrebbe tutti elementi adiacenti e si avrebbe bisogno di meno letture.
 
 \subsection{Il linguaggio CUDA}
 
@@ -316,9 +303,9 @@ In particolare, CUDA aggiunge le seguenti parole chiave per le funzioni:
 \verb|__host__| e \verb|__device__| possono essere combinati assieme. CUDA aggiunge anche le seguenti parole chiave per le variabili:
 
 \begin{itemize}
-    \item \verb|__constant__|: piazza la variabile in memoria costante;
-    \item \verb|__device__|: piazza la variabile nella memoria globale della GPU. Essa è comunque accessibile dall'host tramite opportune funzioni;
-    \item \verb|__shared__|: piazza la variabile nella memoria shared. In questo caso, il suo accesso è limitato al singolo blocco;
+    \item \verb|__constant__|: memorizza la variabile in memoria costante;
+    \item \verb|__device__|: memorizza la variabile nella memoria globale della GPU. Essa è comunque accessibile dall'host tramite opportune funzioni;
+    \item \verb|__shared__|: memorizza la variabile nella memoria shared. In questo caso, il suo accesso è limitato al singolo blocco;
 \end{itemize}
 
 L'estensione più importante in CUDA riguarda il modo in cui si chiamano le funzioni dichiarate \verb|__global__|: queste richiedono due parametri obbligatori, ovvero il numero di blocchi e il numero di thread per blocco da utilizzare per l'esecuzione.
@@ -329,23 +316,23 @@ La visione artificiale è il campo dell'informatica che si occupa di analizzare 
 
 La Stereo Vision è una sottobranca della visione artificiale che si occupa di ottenere informazioni spaziali utilizzando due immagini (da qui viene il termine \textit{stereo}, che significa \textit{due}).
 
-Gli uomini posseggono due occhi frontali che vedono il mondo esterno da due posizioni differenti: queste due posizioni vengono combinate, usando le piccole differenze presenti tra le due per recuperare le informazioni in 3D sull'ambiente esterno. L'idea di base della Stereo Vision è la simulazione di questo sistema: per far ciò si utilizzano due fotocamere, disposte orizzontalmente l'una all'altra, in modo che fungano come da occhi umani che guardano la scena di cui si è interessati. Le due immagini che si ottengono dalle fotocamere sono chiamate \textit{Stereo Pair}.
+Gli uomini posseggono due occhi frontali che vedono il mondo esterno da due posizioni differenti: queste due posizioni vengono combinate, usando le piccole differenze presenti tra le due per recuperare le informazioni in 3D sull'ambiente esterno. L'idea di base della Stereo Vision è la simulazione di questo sistema: per far ciò si utilizzano due fotocamere, disposte orizzontalmente l'una all'altra, in modo che fungano come da occhi umani che guardano la scena di cui si è interessati. Le due immagini che si ottengono dalle fotocamere sono chiamate \textit{Stereo Pair}. La figura \ref{img:stereo_pair} ne mostra un esempio.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{tsukuba-stereo-pair.png}
+    \caption[Un esempio di \textit{stereo pair}.]{Uno \textit{stereo pair}. La seconda immagine è leggermente spostata orizzontalmente rispetto alla prima.}
     \source{\url{https://www.researchgate.net/figure/Tsukuba-stereo-pair_fig1_278622997}}
-    \caption{Un esempio di \textit{stereo pair}.}
     \label{img:stereo_pair}
 \end{figure}
 
-Un problema importante nella Stereo Vision è come inferire la profondità degli oggetti della scena usando le due immagini prese dalle fotocamere \cite{imagevideohandbook}. È qui che entrano in gioco gli algoritmi di \textit{Stereo Matching}: durante la fase di analisi delle due immagini, si cerca un \textit{match} tra un oggetto di un immagine e la posizione dell'oggetto nell'altra immagine: la differenza della sua posizione nelle due immagini determina la posizione finale dell'oggetto. Le informazioni che si ottengono sulla profondità degli oggetti vengono chiamate nel loro complesso \textit{mappa di disparità}.
+Un problema importante nella Stereo Vision è come inferire la profondità degli oggetti della scena usando le due immagini prese dalle fotocamere \cite{imagevideohandbook}. È qui che entrano in gioco gli algoritmi di \textit{Stereo Matching}: durante la fase di analisi delle due immagini, si cerca una corrispondenza (\textit{match}) tra un oggetto di un immagine e la posizione dell'oggetto nell'altra immagine: la differenza della sua posizione nelle due immagini determina la posizione finale dell'oggetto. Le informazioni che si ottengono sulla profondità degli oggetti vengono chiamate nel loro complesso \textit{mappa di disparità}. Una mappa di disparità si può vedere nella figura \ref{img:disparity_map}.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{disparity_map.jpg}
-    \source{\url{https://docs.opencv.org/4.x/dd/d53/tutorial_py_depthmap.html}}
     \caption[Esempio di mappa di disparità.]{Esempio di mappa di disparità. Le regioni più chiare indicano oggetti più vicini, mentre quelle più scure indicano oggetti più lontani.}
+    \source{\url{https://docs.opencv.org/4.x/dd/d53/tutorial_py_depthmap.html}}
     \label{img:disparity_map}
 \end{figure}
 
@@ -364,14 +351,14 @@ Per estrarre le informazioni 3D, la maggior parte degli algoritmi di Stereo Visi
 
 L'approccio classico per lo stereo matching è: per ogni pixel $p = (x, y)$ nell'immagine di partenza, si trova la linea corrispondente nell'immagine di destinazione, poi si trova il pixel $p'$ più somigliante nella linea. Nei casi più semplici, la linea corrispondente è la coordinata $y$ del punto $p$.
 
-Il calcolo della \textbf{somiglianza} differisce in ogni algoritmo, ma in generale viene calcolata utilizzando la regione intorno al punto. Si definiscono due \textit{finestre} di grandezza $NxN$: $W (x, y)$, centrata nel punto $p$, e $W'$, che viene fatta scorrere in orizzontale lungo la linea. Ad ogni scorrimento corrisponde un nuovo punto $p'$. Per ogni punto $p'$ trovato, si calcola una metrica particolare derivata dall'intorno. Tre metriche popolari sono la \textit{Correlazione Normalizzata}, la \textit{Sum of Squared Differences} e la \textit{Sum of Absolute Differences} \cite{stereomatchingalgos}.
+Il calcolo della \textbf{somiglianza} differisce in ogni algoritmo, ma in generale viene calcolata utilizzando la regione intorno al punto. Si definiscono due \textit{finestre} di grandezza $N \times N$: $W (x, y)$, centrata nel punto $p$, e $W'$, che viene fatta scorrere in orizzontale lungo la linea. Ad ogni scorrimento corrisponde un nuovo punto $p'$. Per ogni punto $p'$ trovato, si calcola una metrica particolare derivata dall'intorno. Tre metriche popolari sono la \textit{Correlazione Normalizzata}, la \textit{Sum of Squared Differences} e la \textit{Sum of Absolute Differences} \cite{stereomatchingalgos}.
 
-Un approccio alternativo consiste nell'\textit{edge matching} (\textit{corrispondenza dei contorni}). In questo caso per le due immagini si trovano i contorni, poi si fa il \textit{match} dei contorni in modo simile al metodo delle finestre: in questo caso si calcola la somiglianza tra contorni.
+Un approccio alternativo consiste nell'\textit{edge matching} (\textit{corrispondenza dei contorni}). In questo caso per le due immagini si trovano i contorni, poi si fa il \textit{match} dei contorni in modo simile al metodo delle finestre: in questo caso si calcola la somiglianza tra contorni. La figura \ref{img:contours} mostra un immagine di cui sono stati prelevati i contorni.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{contours.png}
-    \caption{I contorni di un immagine}
+    \caption{I contorni di un immagine.}
     \label{img:contours}
 \end{figure}
 
@@ -386,12 +373,12 @@ L'algoritmo di stereo matching che presentiamo fu descritto e implementato per l
 \begin{figure}[h]
     \centering
     \includegraphics[width=7cm]{connection-machine.jpg}
-    \source{\url{https://commons.wikimedia.org/wiki/File:Computer_Museum_of_America_(51).jpg}}
     \caption{Il design esterno della Connection Machine CM-2.}
+    \source{\url{https://commons.wikimedia.org/wiki/File:Computer_Museum_of_America_(51).jpg}}
     \label{img:connection_machine}
 \end{figure}
 
-La \textit{Connection Machine CM-2} fa parte di una serie di supercomputer sviluppati dall'azienda Thinking Machines nei primo anni 80. La macchina era un supercomputer parallelo basata sul parallelismo a livello di dati (\textit{data level parallelism}), che consiste nell'eseguire un'operazione su più dati in parallelo, in contrasto con il parallelismo a livello di istruzioni, che consiste nell'eseguire in parallelo le istruzioni che possono essere eseguite indipendentemente \cite{originalalgo}. In pratica, ciò significa che la Connection Machine operava come una gigantesca macchina SIMD (Single Instruction Multiple Data).
+La \textit{Connection Machine CM-2} fa parte di una serie di supercomputer sviluppati dall'azienda Thinking Machines nei primo anni 80. La macchina era un supercomputer parallelo basata sul parallelismo a livello di dati (\textit{data level parallelism}), che consiste nell'eseguire un'operazione su più dati in parallelo, in contrasto con il parallelismo a livello di istruzioni, che consiste nell'eseguire in parallelo le istruzioni che possono essere eseguite indipendentemente \cite{originalalgo}. In pratica, ciò significa che la Connection Machine operava come una gigantesca macchina SIMD (Single Instruction Multiple Data). La figura \ref{img:connection_machine} ne mostra una foto dall'esterno.
 
 La macchina, per eseguire i programma, utilizzava una parte di front-end, dove veniva memorizzato il programma e dove veniva eseguito il codice seriale. Quando un programma incontrava istruzioni parallele (istruzioni che operava sui dati in modo parallelo), le passava all'hardware della Connection Machine: questo era composto da 65535 processori, ognuno con 4096 bit di memoria.
 
@@ -421,9 +408,9 @@ Il Lisp ha molti dialetti e *Lisp è uno di questi (in particolare, è un dialet
         (!! 0)))
 \end{lstlisting}
 
-\chapter{Descrizione dell'algoritmo}
+\chapter{Descrizione dell'algoritmo di \textit{stereo matching}}
 
-L'algoritmo di \textit{stereo matching} che andiamo a presentare ha come obbiettivo il disegnare le linee di livello di un area geografica. Questo problema viene chiamato \textit{contour mapping} e consiste nell'estrarre informazioni sull'altezza da immagini che memorizzano informazioni sulla luminosità dell'area. L'immagine risultante viene chiamata \textit{contour map} (mappa dei contorni o dei livelli).
+L'algoritmo di \textit{stereo matching} che andiamo a presentare ha come obbiettivo il disegnare le linee di livello di un'area geografica. Questo problema viene chiamato \textit{contour mapping} e consiste nell'estrarre informazioni sull'altezza da immagini che memorizzano informazioni sulla luminosità dell'area. L'immagine risultante viene chiamata \textit{contour map} (mappa dei contorni o dei livelli).
 
 L'algoritmo prende come input due immagini aeree di un'area geografica: le due immagini devono essere uno \textit{stereo pair} e devono essere siano in bianco e nero, ovvero all'inizio dell'algoritmo le due immagini devono rappresentare la luminosità che c'è in ogni punto dell'area geografica.
 
@@ -441,9 +428,11 @@ Per avere più dettagli sull'implementazione originale dell'algoritmo, si può c
 
 \section{Ricerca ed estrazione dei bordi}
 
-La ricerca dei contorni avviene indipendentemente su tutte e due le immagini. L'algoritmo definisce un contorno come una linea che giace sul confine tra aree di luminosità molto diversa. A questo proposito, l'algoritmo da per ogni pixel basandosi sugli intorni del pixel: se da un lato del pixel la luminosità è molto differente che dall'altro, allora il pixel viene classificato come un pixel del contorno. Questa operazione è un esempio di \textit{local neighborhood operation}, operazione locale sui vicini.
+La ricerca dei contorni avviene indipendentemente su tutte e due le immagini. L'algoritmo definisce un contorno come una linea che giace sul confine tra aree di luminosità molto diversa. A questo proposito, l'algoritmo da una classificazione per ogni pixel basandosi sui suoi intorni: se da un lato del pixel la luminosità è molto differente che dall'altro, allora il pixel viene classificato come un pixel del contorno. Questa operazione è un esempio di \textit{local neighborhood operation}, operazione locale sui vicini.
 
-La seguente funzione in *Lisp mostra l'implementazione originale dell'operazione. Questa funzione si occupa solo di un pixel e calcola la differenza di luminosità tra il lato destro e sinistro del pixel: se questa risulta maggiore di una certa soglia, allora il pixel viene considerato come parte di un bordo.
+La seguente funzione in *Lisp mostra l'implementazione originale dell'operazione. Questa funzione si occupa solo di un pixel: prima calcola la media della luminosità nei lati destro e sinistro del pixel, poi calcola la differenza di luminosità e la confronta con una certa soglia: se questa risulta maggiore, allora il pixel viene considerato come parte di un bordo.
+
+A riga 19, la soglia è moltiplicata con la media complessiva di luminosità: in questo modo, la soglia si adatta all'immagine, diventando minore o maggiore a seconda di quanto sia ``luminosa'' l'immagine in quel punto.
 
 \begin{lstlisting}[style=mystyle]
 (*defun find-edges-between-left-and-right!! (brightness-pvar threshold)
@@ -489,9 +478,9 @@ Il risultato è una nuova immagine con solo valori 0 o 1, dove gli uni indicano 
 
 \section{Ricerca di corrispondenze tra i bordi}
 
-Il prossimo passo consiste nell'\textit{edge matching} tra le immagini dei bordi ottenute. Questo passo viene fatto con un processo di scorrimento: la prima immagine resta ferma, mentre la seconda viene fatta scorrere sulla prima. Ad ogni scorrimento (\textit{shift}), tutti i pixel della prima immagine vengono confrontati con la seconda e i risultati vengono memorizzati in una nuova immagine.
+Il prossimo passo consiste nell'\textit{edge matching} tra le immagini dei bordi ottenute. Questo passo viene fatto con un processo di scorrimento: la prima immagine resta ferma, mentre la seconda viene fatta scorrere sulla prima. Per ogni scorrimento (\textit{shift}), tutti i pixel della prima immagine vengono confrontati con la seconda: se un pixel della prima è uguale al pixel alla stessa posizione nella seconda, allora si ha una corrispondenza. Il risultato è un immagine binaria dove gli uni indicano corrispondenze.
 
-La funzione seguente è l'implementazione originale. L'array alla riga 1 memorizza le immagini risultanti per ogni scorrimento.
+La funzione seguente è l'implementazione originale. L'array alla riga 1 memorizza le immagini risultanti per ogni scorrimento. L'operazione alla riga 6 implementa l'operazione di scorrimento: la funzione \verb|pref-grid-relative| esegue un operazione di indicizzazione relativa, ovvero prende un immagine in input, la sposta di \verb|i| posizioni in orizzontale e ritorna una nuova immagine. Il risultato è che ad ogni ciclo di \verb|dotimes| (che corrisponde ad un ciclo \verb|for| da 0 a 30), l'immagine destra sarà spostata orizzontalmente e confrontata con l'immagine di sinistra.
 
 \begin{lstlisting}[style=mystyle]
 (defvar *array-of-pvars-holding-matches-at-each-shift* (make-array 30))
@@ -510,7 +499,9 @@ La funzione seguente è l'implementazione originale. L'array alla riga 1 memoriz
 
 A questo punto, l'algoritmo usa le informazioni appena calcolate per misurare la qualità dell'allineamento: per ogni pixel, si calcola quale scorrimento è il migliore tra tutti. L'indice dello scorrimento migliore corrisponderà direttamente all'altezza di quel pixel.
 
-Lo scorrimento migliore viene calcolato con un'altra operazione locale sui vicini: per ogni pixel vengono contati il numero di pixel nell'intorno che hanno avuto una corrispondenza (un \textit{match}) in quello scorrimento. Nell'implementazione originale, questo intorno è un quadrato di lato variabile e vengono sommati tutti i pixel posti a 1 in precedenza.
+Lo scorrimento migliore viene calcolato in più fasi: prima, per ogni scorrimento si assegna un punteggio, che indicherà la qualità di quello scorrimento per quel pixel. Il punteggio per ogni pixel viene calcolato con un'altra operazione locale sui vicini: vengono contati il numero di pixel nell'intorno che hanno avuto una corrispondenza in quello scorrimento. Nell'implementazione originale, questo intorno è un quadrato di lato variabile (di solito 21) e vengono sommati tutti i pixel posti a 1 in precedenza.
+
+La funzione seguente esegue l'operazione descritta in parallelo per ogni pixel di un immagine.
 
 \begin{lstlisting}[style=mystyle]
 (*defun add-up-all-pixels-in-a-square (pvar width-of-square)
@@ -527,7 +518,7 @@ Lo scorrimento migliore viene calcolato con un'altra operazione locale sui vicin
       total)))
 \end{lstlisting}
 
-Questa funzione viene poi usata per memorizzare la qualità di tutti gli scorrimenti. Nella funzione seguenti, vengono esclusi dal calcolo della qualità tutti i pixel che non fanno parte dei bordi.
+Per calcolare i punteggi per ogni scorrimento, basta usare la funzione precedente in un ciclo. La funzione seguente implementa questo ciclo, poi esclude dal calcolo della qualità tutti i pixel che non fanno parte dei bordi (per questi il punteggio è zero).
 
 \begin{lstlisting}[style=mystyle]
 (defvar *array-of-pvars-holding-scores-at-each-shift* (make-array 30))
@@ -546,7 +537,7 @@ Questa funzione viene poi usata per memorizzare la qualità di tutti gli scorrim
                  i)))))
 \end{lstlisting}
 
-Infine, per trovare il migliore scorrimento per ogni pixel, basta usare la classica operazione di ricerca del massimo. La funzione seguente crea due nuove immagini che memorizzano sia i punteggi che gli scorrimenti migliori per ogni pixel.
+Infine, per trovare il migliore scorrimento per ogni pixel, basta usare la classica operazione di ricerca del massimo. La funzione seguente implementa prima un ciclo che trova i punteggi massimi (righe 6-10), poi trova a quali scorrimenti sono associati quei punteggi (righe 13-16). Il risultato della funzione è un immagine con gli indici degli scorrimenti migliori, che corrispondono all'altezza per ogni pixel.
 
 \begin{lstlisting}[style=mystyle]
 (*defun find-the-shifts-of-the-highest-scoring-matches ()
@@ -570,9 +561,9 @@ Infine, per trovare il migliore scorrimento per ogni pixel, basta usare la class
 
 \section{Disegno delle linee di livello}
 
-Il processo fatto fin'ora ci dà un'immagine che rappresenta l'altezza dell'area ad ogni pixel. Le altezze memorizzate però valgono solo per i pixel che giacciono sui bordi: essenzialmente tra i bordi ci sono ancora dei buchi e serve un altro passo per trovare le informazioni mancanti per questi buchi. L'algoritmo trova queste informazioni usando un operazione di interpolazione: per ogni pixel la cui altezza è zero, calcola una media sugli intorni dei pixel.
+Il processo fatto finora ci dà un'immagine che rappresenta l'altezza dell'area ad ogni pixel. Le altezze memorizzate però valgono solo per i pixel che giacciono sui bordi: essenzialmente tra i bordi ci sono ancora dei buchi e serve un altro passo per trovare le informazioni mancanti per questi buchi. L'algoritmo trova queste informazioni usando un operazione di interpolazione: per ogni pixel la cui altezza è zero, calcola una media sugli intorni dei pixel.
 
-Compiendo questa operazione una sola volta, solo i pixel giacenti vicino ai bordi si riempirebbero, quindi l'operazione viene ripetuta un certo numero di volte, finché tutti i pixel siano maggiori di zero.
+Compiendo questa operazione una sola volta, solo i pixel giacenti vicino ai bordi si riempirebbero, dato che per un pixel ad altezza 0 a sua volta circondato da pixel ad altezza 0 la media rimane 0. Per questo l'operazione viene ripetuta un certo numero di volte, riempiendo gradualmente i buchi ad ogni iterazione, finché tutti i pixel diventino coperti e nessuno abbia altezza 0.
 
 \begin{lstlisting}[style=mystyle]
 (defun fill-in-web-holes (web-of-known-elevations times-to-repeat)
@@ -581,24 +572,20 @@ Compiendo questa operazione una sola volta, solo i pixel giacenti vicino ai bord
       (*if not-fixed
         (*set web-of-known-elevations
               (/! (+!!
-                    (pref-grid-relative!!
-                      web-of-known-elevations
+                    (pref-grid-relative!!  web-of-known-elevations
                       (!!  1) (!!  0))  ; neighbor to the right
-                    (pref-grid-relative!!
-                      web-of-known-elevations
+                    (pref-grid-relative!!  web-of-known-elevations
                       (!!  0) (!!  1))  ; neighbor above
-                    (pref-grid-relative!!
-                      web-of-known-elevations
+                    (pref-grid-relative!!  web-of-known-elevations
                       (!! -1) (!!  0))  ; neighbor to the left
-                    (pref-grid-relative!!
-                      web-of-known-elevations
+                    (pref-grid-relative!!  web-of-known-elevations
                       (!!  0) (!! -1))) ; neighbot below
                   (!! 4))))))
   ;;; this is now a more or less smooth surface.
   web-of-known-elevations)
 \end{lstlisting}
 
-L'ultimo passo consiste nel disegnare le linee di livello. L'implementazione originale prende in input il numero di linee da tracciare, divide le altezze in più intervalli e traccia una linea per ogni intervallo.
+L'ultimo passo consiste nel disegnare le linee di livello. L'implementazione originale prende in input il numero di linee da tracciare, divide le altezze in più intervalli e traccia una linea per ogni intervallo. La variabile \verb|contour-line-interval| a riga 6 rappresenta quante ``altezze'' si deve saltare prima di tracciare una nuova linea.
 
 \begin{lstlisting}[style=mystyle]
 (defun draw-contour-map (number-of-contour-lines
@@ -608,6 +595,8 @@ L'ultimo passo consiste nel disegnare le linee di livello. L'implementazione ori
         (range-of-elevations (- max-elevation min-elevation))
         (contour-line-interval (/ range-of-elevations
                                   number-of-contour-lines)))
+    ;; Now the variable CONTOUR-LINE-INTERVAL tells us how many
+    ;; elevations, or shifts, to skip between contour lines.
     (if!! (zerop!!
             (mod!! (-!! pvar-of-smooth-continuous-elevations
                         (!! min-elevation))
@@ -692,9 +681,9 @@ void free_matches()
 }
 \end{lstlisting}
 
-La funzione \verb|ALLOCATE_GPU| è un semplice \textit{wrapper} della funzione \verb|cudaMalloc| che ne semplifica il funzionamento.
+La funzione \verb|ALLOCATE_GPU| è un semplice \textit{wrapper} della funzione \verb|cudaMalloc| che ne semplifica il funzionamento. Dato che l'\textit{host} non ha accesso diretto alla memoria sul \textit{device}, si usa la funzione \verb|cudaMemcpyToSymbol| per aggiornare \verb|matches|.
 
-La funzione seguente è una traduzione diretta della funzione originale. Da notare che gli elementi di \verb|matches| sono tutte immagini binarie.
+La funzione seguente è una traduzione diretta della funzione originale \verb|fillup-pvars-wherever-edges-align|. Da notare che gli elementi di \verb|matches| sono tutte immagini binarie.
 
 \begin{lstlisting}[style=mystyle]
 __global__ void fillup_matches(u8 *left_edges, u8 *right_edges,
@@ -734,7 +723,7 @@ __global__ void addup_pixels_in_square(int i, int width, int height,
 }
 \end{lstlisting}
 
-Le seguenti funzioni corrispondono alla funzione originale \verb|fillup-pvars-with-match-scores|, ma sono divise in due per via della \verb|cudaMemset| fatta prima di riempire l'array \verb|sum|: quest'ultimo viene usato in questo modo per evitare di fare più allocazioni.
+Le seguenti funzioni corrispondono alla funzione originale \\ \verb|fillup-pvars-with-match-scores|, ma sono divise in due per via della \verb|cudaMemset| fatta prima di riempire l'array \verb|sum|: quest'ultimo viene usato in questo modo per evitare di fare più allocazioni.
 
 Qui si può anche notare il metodo di chiamata di una funzione kernel: la funzione \verb|ceil_div| serve per calcolare l'esatto numero di blocchi che servono a partire dalle dimensioni delle immagini.
 
@@ -763,7 +752,7 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
 }
 \end{lstlisting}
 
-Infine, la funzione seguente esegue la ricerca del punteggio massimo per ogni pixel. La funzione MAX calcola il massimo tra due valori.
+Infine, la funzione seguente esegue la ricerca del punteggio massimo per ogni pixel. La funzione \verb|MAX| a riga 8 calcola il massimo tra due valori.
 
 \begin{lstlisting}[style=mystyle]
 __global__ void find_highest_scoring_shifts(i32 *best_scores,
@@ -790,11 +779,10 @@ __global__ void fill_holes_step(i32 *web, i32 *tmp, int width)
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     if (tmp[IDX(x, y, width)] == 0) {
-        web[IDX(x, y, width)] =
-            (tmp[IDX(x+1, y,   width)]
-           + tmp[IDX(x,   y+1, width)]
-           + tmp[IDX(x-1, y,   width)]
-           + tmp[IDX(x,   y-1, width)]) / 4;
+        web[IDX(x, y, width)] = (tmp[IDX(x+1, y,   width)]
+                              + tmp[IDX(x,   y+1, width)]
+                              + tmp[IDX(x-1, y,   width)]
+                              + tmp[IDX(x,   y-1, width)]) / 4;
     }
 }
 
@@ -856,8 +844,6 @@ Per testare le prestazioni dell'algoritmo, sono state create quattro versioni: u
 
 Per quanto riguarda i test, si è scelto di usare alcune coppie di immagini di varie grandezze. Le coppie di immagini sono tutte uguali, avendo le dimensioni come unica differenza; si è provato anche ad usare immagini diverse, ma non sono state riscontrate differenze reali nei tempi di esecuzione.
 
-% I test sui programmi seriali sono stati effettuati in due macchine diversi; i test sui programmi paralleli sono stati effettuati su una sola macchina. 
-
 \section{Metriche usate}
 
 Lo \textit{Speedup} è la metrica più utilizzata nella misurazione delle prestazione di un programma parallelo e rappresenta l'accelerazione che ha avuto il programma tramite la parallelizzazione. In particolare, lo \textit{Speedup} si misura con la formula:
@@ -880,14 +866,14 @@ Di seguito si possono vedere i dati raccolti sia per lo \textit{Speedup} che per
     \centering
     \includegraphics[width=\textwidth]{graphs_serial.png}
     \caption{I tempi di esecuzione per i programmi seriali.}
-    \label{img:times}
+    \label{img:times_ser}
 \end{figure}
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{graphs_parallel.png}
     \caption{I tempi di esecuzione per i programmi paralleli.}
-    \label{img:times}
+    \label{img:times_par}
 \end{figure}
 
 \begin{figure}[h]
@@ -901,7 +887,7 @@ Di seguito si possono vedere i dati raccolti sia per lo \textit{Speedup} che per
     \centering
     \includegraphics[width=\textwidth]{throughput.png}
     \caption{Il throughput nei due programmi paralleli.}
-    \label{}
+    \label{img:throughput}
 \end{figure}
 
 \chapter*{Conclusioni}
@@ -926,8 +912,8 @@ Un altro sviluppo interessante sarebbero ottimizzazioni più elaborate: ad esemp
 \rhead[\fancyplain{}{\bfseries BIBLIOGRAFIA}]{\fancyplain{}{\bfseries\thepage}}
 \lhead[\fancyplain{}{\bfseries\thepage}]{\fancyplain{}{\bfseries BIBLIOGRAFIA}}
 
+\bibliographystyle{unsrtnat}
 \bibliography{biblio}{}
-\bibliographystyle{plain}
 
 \addcontentsline{toc}{chapter}{Bibliografia}
 
@@ -939,7 +925,8 @@ Un altro sviluppo interessante sarebbero ottimizzazioni più elaborate: ad esemp
 \chapter*{Ringraziamenti}
 \addcontentsline{toc}{chapter}{Ringraziamenti}
 \thispagestyle{empty}
-Ringraziamenti.
+
+Ringrazio la mia famiglia per il sostegno e il supporto che mi hanno dato. Ringrazio anche i miei amici e i miei compagni di università, che mi hanno accompagnato e mi hanno aiutato durante questo percorso. Ringrazio infine il prof. Moreno Marzolla per avermi aiutato con questa tesi di laurea e per essere stato sempre gentile e professionale con me.
 
 \nocite{*}
 
