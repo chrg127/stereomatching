@@ -14,7 +14,8 @@
 
 // step 1
 
-int find_edges_left_right(double *brightness, int width, int x, int y, double threshold)
+int find_edges_left_right(double *brightness,
+        int width, int x, int y, double threshold)
 {
     double avg_left  = (brightness[IGX(x-1, y-1, width, 1)]
                      +  brightness[IGX(x-1, y  , width, 1)]
@@ -23,10 +24,12 @@ int find_edges_left_right(double *brightness, int width, int x, int y, double th
                      +  brightness[IGX(x+1, y  , width, 1)]
                      +  brightness[IGX(x+1, y+1, width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
-    return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
+    return fabs(avg_left - avg_right) > CLAMP(threshold * overall,
+                                                0.0, 1.0);
 }
 
-int find_edges_top_bottom(double *brightness, int width, int x, int y, double threshold)
+int find_edges_top_bottom(double *brightness,
+        int width, int x, int y, double threshold)
 {
     double avg_left  = (brightness[IGX(x-1, y-1, width, 1)]
                      +  brightness[IGX(x  , y-1, width, 1)]
@@ -35,10 +38,12 @@ int find_edges_top_bottom(double *brightness, int width, int x, int y, double th
                      +  brightness[IGX(x  , y+1, width, 1)]
                      +  brightness[IGX(x+1, y+1, width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
-    return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
+    return fabs(avg_left - avg_right) > CLAMP(threshold * overall,
+                                                0.0, 1.0);
 }
 
-int find_edges_upleft_downright(double *brightness, int width, int x, int y, double threshold)
+int find_edges_upleft_downright(double *brightness,
+        int width, int x, int y, double threshold)
 {
     double avg_left  = (brightness[IGX(x-1, y-1, width, 1)]
                      +  brightness[IGX(x  , y-1, width, 1)]
@@ -47,10 +52,12 @@ int find_edges_upleft_downright(double *brightness, int width, int x, int y, dou
                      +  brightness[IGX(x  , y+1, width, 1)]
                      +  brightness[IGX(x+1, y+1, width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
-    return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
+    return fabs(avg_left - avg_right) > CLAMP(threshold * overall,
+                                                0.0, 1.0);
 }
 
-int find_edges_downleft_upright(double *brightness, int width, int x, int y, double threshold)
+int find_edges_downleft_upright(double *brightness,
+        int width, int x, int y, double threshold)
 {
     double avg_left  = (brightness[IGX(x-1, y+1, width, 1)]
                      +  brightness[IGX(x  , y+1, width, 1)]
@@ -59,18 +66,19 @@ int find_edges_downleft_upright(double *brightness, int width, int x, int y, dou
                      +  brightness[IGX(x+1, y-1, width, 1)]
                      +  brightness[IGX(x+1, y  , width, 1)]) / 3.0;
     double overall   = (avg_left + avg_right) / 2.0;
-    return fabs(avg_left - avg_right) > CLAMP(threshold * overall, 0.0, 1.0);
+    return fabs(avg_left - avg_right) > CLAMP(threshold * overall,
+                                                0.0, 1.0);
 }
 
-void find_all_edges(double *brightness, int width, int height, double threshold, u8 *edges)
+void find_all_edges(double *brightness, int w, int h, double threshold, u8 *edges)
 {
-    for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) {
-            edges[IGX(x, y, width, GHOST_SIZE_EDGES)] =
-                find_edges_left_right      (brightness, width, x, y, threshold)
-             || find_edges_top_bottom      (brightness, width, x, y, threshold)
-             || find_edges_upleft_downright(brightness, width, x, y, threshold)
-             || find_edges_downleft_upright(brightness, width, x, y, threshold);
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            edges[IGX(x, y, w, GHOST_SIZE_EDGES)] =
+                      find_edges_left_right(brightness, w, x, y, threshold)
+             ||       find_edges_top_bottom(brightness, w, x, y, threshold)
+             || find_edges_upleft_downright(brightness, w, x, y, threshold)
+             || find_edges_downleft_upright(brightness, w, x, y, threshold);
         }
     }
 }
@@ -79,7 +87,6 @@ void find_all_edges(double *brightness, int width, int height, double threshold,
 
 // step 2
 
-// a WxH size array used to keep matches
 u8 *matches[NUM_SHIFTS];
 
 void allocate_matches(int width, int height)
@@ -102,7 +109,8 @@ void free_matches(int width)
         GHOST_FREE(u8, matches[i], width, GHOST_SIZE_MATCHES);
 }
 
-void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
+void fillup_matches(u8 *left_edges, u8 *right_edges,
+        int width, int height)
 {
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
@@ -120,7 +128,27 @@ void fillup_matches(u8 *left_edges, u8 *right_edges, int width, int height)
 
 // step 3
 
-// a WxH size array used to keep scores
+// the square for each pixel is to be centered on that pixel.
+// the double for loop is slightly different than the original,
+// going from -half to +half.
+void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width, i32 *total)
+{
+    int half = square_width / 2;
+    for (int sy = 0; sy < square_width; sy++) {
+        for (int sx = 0; sx < square_width; sx++) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int cur = IDX(x, y, width);
+                    int rel = IGX(x + sx - half,
+                                  y + sy - half,
+                                  width, GHOST_SIZE_MATCHES);
+                    total[cur] += (i32) pixels[rel];
+                }
+            }
+        }
+    }
+}
+
 i32 *scores[NUM_SHIFTS];
 
 void allocate_scores(int width, int height)
@@ -141,24 +169,6 @@ void free_scores()
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
         free(scores[i]);
-}
-
-void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width, i32 *total)
-{
-    int half = square_width / 2;
-    for (int sy = 0; sy < square_width; sy++) {
-        for (int sx = 0; sx < square_width; sx++) {
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    int cur = IDX(x, y, width);
-                    int rel = IGX(x + sx - half,
-                                  y + sy - half,
-                                  width, GHOST_SIZE_MATCHES);
-                    total[cur] += (i32) pixels[rel];
-                }
-            }
-        }
-    }
 }
 
 void record_score(int i, i32 *sum, int width, int height)
@@ -187,8 +197,8 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
 // the shift at each pixel corresponds directly to the elevation.
 void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int width, int height)
 {
-    // the following loop makes sure that each pixel in the best_scores
-    // image contains the maximum score found at any shift.
+    // the following loop makes sure that each pixel in the
+    // 'best_scores' image contains the maximum score found at any shift.
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -198,7 +208,7 @@ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int widt
             }
         }
     }
-    // the following loop records a 'winning' shift at every pixel
+    // the following loop records a "winning" shift at every pixel
     // whose score is the best.
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
@@ -215,12 +225,12 @@ void find_highest_scoring_shifts(i32 *best_scores, i32 *winning_shifts, int widt
 
 // step 4
 
+// each time though the loop, every pixel not on the web (i.e., every pixel that is not
+// zero to begin with) takes on the average elevation of its four neighbors. therefore,
+// the web pixels gradually "spread" their elevations across the holes, while they
+// themselves remain unchanged.
 i32 *fill_web_holes(i32 *web, int width, int height, int times)
 {
-    // each time though the loop, every pixel not on the web (i.e., every pixel that is not
-    // zero to begin with) takes on the average elevation of its four neighbors. therefore,
-    // the web pixels gradually "spread" their elevations across the holes, while they
-    // themselves remain unchanged.
     i32 *tmp = ALLOCATE(i32, width * height);
     memcpy(tmp, web, sizeof(web[0]) * width * height);
     for (int i = 0; i < times; i++) {
@@ -228,10 +238,11 @@ i32 *fill_web_holes(i32 *web, int width, int height, int times)
             for (int x = 0; x < width; x++) {
                 if (tmp[IDX(x, y, width)] == 0) {
                     web[IDX(x, y, width)] =
-                        (tmp[IDX(x+1, y,   width)]
-                       + tmp[IDX(x,   y+1, width)]
-                       + tmp[IDX(x-1, y,   width)]
-                       + tmp[IDX(x,   y-1, width)]) / 4;
+                        (tmp[IDX(x+1, y,   width)]  // neighbor to the right
+                       + tmp[IDX(x,   y+1, width)]  // neighbor above
+                       + tmp[IDX(x-1, y,   width)]  // neighbor to the left
+                       + tmp[IDX(x,   y-1, width)]) // neighbor below
+                       / 4;
                 }
             }
         }
@@ -244,20 +255,21 @@ i32 *fill_web_holes(i32 *web, int width, int height, int times)
 i32 image_max(i32 *im, int width, int height) { return array_max(im, width*height); }
 i32 image_min(i32 *im, int width, int height) { return array_min(im, width*height); }
 
-void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *image_output)
+void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *out)
 {
     i32 max_elevation = image_max(web, width, height),
         min_elevation = image_min(web, width, height);
-    // the idea is to divide the whole range of elevations into a number of intervals,
-    // then to draw a contour line at every interval.
+    // the idea is to divide the whole range of elevations into a number
+    // of intervals, then to draw a contour line at every interval.
+    // the variable 'interval' tells us how many
+    // elevations, or shifts, to skip between contour lines.
     i32 range    = max_elevation - min_elevation,
         interval = range / num_lines;
-    // now the variable 'interval' tells us how many elevations, or shifts, to skip between
-    // contour lines.
+    // this loop draws all the elevation.
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             int index = IDX(x, y, width);
-            image_output[index] = ((web[index] - min_elevation) % interval) == 0;
+            out[index] = ((web[index] - min_elevation) % interval) == 0;
         }
     }
 }
