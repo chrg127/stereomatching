@@ -63,7 +63,18 @@ $(outdir)/%.c.o: %.c
 $(outdir)/%.cu.o: %.cu
 	$(NVCC) $(NVFLAGS) $(flags_deps) -c $< -o $@
 
-.PHONY: clean
+graphs:
+	@python3 test/make_graph.py $$(./test/time.sh timing/stereomatch) \
+						 	    $$(./test/time.sh timing/stereomatch-ghost) \
+						  	    $$(./test/time.sh timing/stereomatch) \
+						 	    $$(./test/time.sh timing/stereomatch)
+	@convert -append ser.png sergh.png report/graphs_serial.png
+	@convert -append par.png pargh.png report/graphs_parallel.png
+	@convert -append sppar.png sppargh.png report/speedup.png
+	@convert -append tppar.png tppargh.png report/throughput.png
+	@rm *.png
 
 clean:
 	-rm -r *.ppm debug timing
+
+.PHONY: clean graphs
