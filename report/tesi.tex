@@ -615,7 +615,7 @@ Basandoci sulla descrizione dell'algoritmo nel capitolo precedente, ne presentia
 
 \section{Ricerca ed estrazione dei bordi}
 
-La prima funzione tradotta è stata quella che implementa la classificazione di un pixel come parte del bordo.
+La prima funzione tradotta è stata quella che implementa la classificazione di un pixel come parte del bordo. Un numero pari a \verb|width * height| di thread eseguono la funzione in parallelo: ogni thread è identificato da una coppia di coordinate \verb|x| e \verb|y|.
 
 \begin{lstlisting}[style=mystyle]
 __device__ int find_edges_left_right(double *brightness,
@@ -659,12 +659,14 @@ __global__ void find_all_edges(double *brightness, int w, int h,
 }
 \end{lstlisting}
 
-Il risultato viene messo in \verb|edges|. Quest'ultimo è un immagine \textit{binaria}, ovvero un immagine con solo 0 o 1, dove 0 questa volta indica il bianco e 1 il nero. La macro \verb|DECLARE_INDEXES| dichiara due indici \verb|x| e \verb|y|, poi fa un controllo su questi per sapere quali thread attivare per questo kernel. La macro viene usata in ogni kernel, dato che è possibile avere troppi thread. La macro viene espansa nel seguente codice:
+Il risultato viene messo in \verb|edges|. Quest'ultimo è un immagine \textit{binaria}, ovvero un immagine con solo 0 o 1, dove 0 questa volta indica il bianco e 1 il nero.
+
+La macro \verb|DECLARE_INDEXES| dichiara una coppia di coordinate \verb|x| e \verb|y| che identifica il thread che sta eseguendo, poi fa un controllo su quest'ultima per sapere se attivare il thread per questo kernel. Questo controllo serve nel caso vengano usati troppi thread (che può capitare se la larghezza o l'altezza delle immagini di input non sono multipli della dimensione del blocco predefinita). La macro viene usata in ogni kernel e viene espansa nel seguente codice:
 
 \begin{lstlisting}
 int x = threadIdx.x + blockIdx.x * blockDim.x;
 int y = threadIdx.y + blockIdx.y * blockDim.y;
-if (x < width || y < height)
+if (x >= width || y >= height)
     return;
 \end{lstlisting}
 

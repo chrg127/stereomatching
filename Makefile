@@ -63,6 +63,9 @@ $(outdir)/%.c.o: %.c
 $(outdir)/%.cu.o: %.cu
 	$(NVCC) $(NVFLAGS) $(flags_deps) -c $< -o $@
 
+thesis:
+	cd report; latexmk -f -pdf tesi.tex
+
 graphs:
 	@python3 test/make_graph.py $$(./test/time.sh timing/stereomatch) \
 						 	    $$(./test/time.sh timing/stereomatch-ghost) \
