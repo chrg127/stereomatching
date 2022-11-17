@@ -10,8 +10,8 @@ def split_values(s):
 
 serial         = split_values(sys.argv[1])
 serial_ghost   = split_values(sys.argv[2])
-# parallel       = split_values(sys.argv[3])
-# parallel_ghost = split_values(sys.argv[4])
+parallel       = split_values(sys.argv[3])
+parallel_ghost = split_values(sys.argv[4])
 
 labels       = [ "240x135", "480x270", "960x540", "1920x1080", "3840x2160", "7680x4320" ]
 ws           = [ 240, 480, 960, 1920, 3840, 7680 ]
