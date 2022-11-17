@@ -205,8 +205,7 @@ void find_highest_scoring_shifts(i32 *best_scores,
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int index = IDX(x, y, width);
-                if (scores[i][index] > best_scores[index])
-                    best_scores[index] = scores[i][index];
+                best_scores[index] = MAX(scores[i][index], best_scores[index]);
             }
         }
     }
@@ -248,7 +247,7 @@ i32 *fill_web_holes(i32 *web, int width, int height, int times)
                 }
             }
         }
-        SWAP(web, tmp, i32 *);
+        SWAP(i32 *, web, tmp);
     }
     free(tmp);
     return web;

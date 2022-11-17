@@ -19,7 +19,7 @@
 #define DECLARE_INDEXES(w, h) \
     int x = threadIdx.x + blockIdx.x * blockDim.x;  \
     int y = threadIdx.y + blockIdx.y * blockDim.y;  \
-    if (x < (w) || y < (h))                         \
+    if (x >= (w) || y >= (h))                       \
         return;
 
 
@@ -217,7 +217,7 @@ __global__ void find_highest_scoring_shifts(i32 *best_scores,
     // the following for loop makes sure that each pixel in the
     // 'best_scores' variable contains the maximum score found at any shift.
     for (int i = 0; i < NUM_SHIFTS; i++)
-        best_scores[index] = MAX(scores[i][index], best_scores[index]
+        best_scores[index] = MAX(scores[i][index], best_scores[index]);
     // the following for loop records a "winning"
     // shift at every pixel whose score is the best.
     for (int i = 0; i < NUM_SHIFTS; i++)
@@ -233,7 +233,7 @@ __global__ void find_highest_scoring_shifts(i32 *best_scores,
 // zero to begin with) takes on the average elevation of its four neighbors. therefore,
 // the web pixels gradually "spread" their elevations across the holes, while they
 // themselves remain unchanged.
-__global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width)
+__global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width, int height)
 {
     DECLARE_INDEXES(width, height)
     if (tmp[IDX(x, y, width)] == 0)
@@ -249,7 +249,7 @@ i32 *fill_web_holes(i32 *web, i32 *tmp, int width, int height, int times)
 {
     DECLARE_BLOCKS(width, height)
     for (int i = 0; i < times; i++) {
-        fill_web_holes_step<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(web, tmp, width);
+        fill_web_holes_step<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(web, tmp, width, height);
         SWAP(i32 *, web, tmp);
     }
     // this is now a more or less smooth surface.
@@ -259,7 +259,7 @@ i32 *fill_web_holes(i32 *web, i32 *tmp, int width, int height, int times)
 i32 image_max(i32 *im, int width, int height) { return array_max_gpu(im, width*height); }
 i32 image_min(i32 *im, int width, int height) { return array_min_gpu(im, width*height); }
 
-__global__ void draw_contour_map_kernel(i32 *web, int width,
+__global__ void draw_contour_map_kernel(i32 *web, int width, int height,
         int num_lines, i32 max_elevation, i32 min_elevation, u8 *out)
 {
     // the idea is to divide the whole range of elevations into a number
@@ -280,7 +280,7 @@ void draw_contour_map(i32 *web, int width, int height, int num_lines, u8 *out)
     i32 immax = image_max(web, width, height),
         immin = image_min(web, width, height);
     draw_contour_map_kernel<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(
-        web, width, num_lines, immax, immin, out
+        web, width, height, num_lines, immax, immin, out
     );
 }
 
@@ -326,8 +326,8 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     write_gpu_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", PARGHOST, 1));
 
     // third step: draw contour lines
-    web = fill_web_holes(web, width, height, params.times);
     checkCudaErrors(cudaMemcpy(tmp, web, sizeof(web[0]) * width * height, cudaMemcpyDeviceToDevice));
+    web = fill_web_holes(web, tmp, width, height, params.times);
     write_gpu_image(web, width, height, 0, IMTYPE_GRAY_INT, make_filename("web", PARGHOST, 2));
     draw_contour_map(web, width, height, params.lines_to_draw, out);
     write_gpu_image(out, width, height, 0, IMTYPE_BINARY, make_filename("output", PARGHOST, 0));

@@ -24,7 +24,7 @@ typedef int32_t  i32;
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define CLAMP(x, mi, ma) (MIN(MAX(x, mi), ma))
-#define SWAP(x, y, T)   \
+#define SWAP(T, x, y)   \
     do {                \
         T tmp = (x);    \
         (x) = (y);      \
