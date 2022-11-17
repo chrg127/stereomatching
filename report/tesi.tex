@@ -904,12 +904,16 @@ Di seguito si possono vedere i dati raccolti sia per lo \textit{Speedup} che per
     \label{img:times_ser}
 \end{figure}
 
+La figura \ref{img:times_ser} un grafico dei tempi per i programmi seriali. Si noti in particolare il tempo per le immagini più grandi: 2 minuti e mezzo per la versione normale e mezzo minuto per quella con \textit{ghost area}. Alla luce di ciò si può dire che la \textit{ghost area} risulta come una buona ottimizzazione.
+
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{graphs_parallel.png}
     \caption{I tempi di esecuzione per i programmi paralleli.}
     \label{img:times_par}
 \end{figure}
+
+In figura \ref{img:times_par} si trovano i tempi per i programmi paralleli, che risultano tutti minori di un secondo. Un cosa che non si nota dai grafici è che i tempi di esecuzione per la versione con \textit{ghost area} risultano più piccoli di un ordine di grandezza rispetto alla versione normale.
 
 \begin{figure}[h]
     \centering
@@ -918,12 +922,16 @@ Di seguito si possono vedere i dati raccolti sia per lo \textit{Speedup} che per
     \label{img:speedup}
 \end{figure}
 
+In figura \ref{img:speedup} troviamo lo \textit{speedup} tra le versioni seriali e parallele, rispettivamente senza e con \textit{ghost area}. Da questi grafici osserviamo uno \textit{speedup} di almeno un fattore di 150 per le versioni normali e di 30 per le versioni con \textit{ghost area}.
+
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{throughput.png}
     \caption{Il throughput nei due programmi paralleli.}
     \label{img:throughput}
 \end{figure}
+
+Infine, la figura \ref{img:throughput} mostra il \textit{throughput} delle due versioni parallele. Il \textit{throughput} qui viene misurato in pixel per secondo, contando anche il numero di volte in cui viene processata un intera immagine. Si noti come il grafico mostri un limite maggiore di 8-9 miliardi di pixel per secondo per il \textit{throughput}.
 
 \chapter*{Conclusioni}
 
