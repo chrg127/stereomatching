@@ -203,7 +203,7 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
         cudaMemset(sum, 0, sizeof(sum[0]) * width * height);
         addup_pixels_in_square<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(i, width, height, square_width, sum);
         write_gpu_image(sum, width, height, 0, IMTYPE_GRAY_INT, make_filename("score_all", PARGHOST, i));
-        record_score<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(i, sum, width, height);
+        record_score<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(i, sum, width, height, square_width);
     }
 }
 
@@ -303,7 +303,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
         *web         = ALLOCATE_GPU(i32, width * height),
         *tmp = ALLOCATE_GPU(i32, width * height);
     u8 *out          = ALLOCATE_GPU(u8, width * height);
-    allocate_matches(width, height);
+    allocate_matches(width, height, params.square_width);
     allocate_scores(width, height);
 
     double t1 = get_time();
@@ -315,8 +315,8 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     write_gpu_image(second_edges, width, height, 30, IMTYPE_BINARY, make_filename("edges", PARGHOST, 2));
 
     // second step: match edges between images
-    fillup_matches<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(first_edges, second_edges, width, height);
-    write_matches(width, height);
+    fillup_matches<<<NUM_BLOCKS, BLOCK_DIM_2D>>>(first_edges, second_edges, width, height, params.square_width);
+    write_matches(width, height, params.square_width);
 
     fillup_scores(width, height, params.square_width, buf);
     write_scores(width, height);
@@ -343,7 +343,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     checkCudaErrors(cudaFree(web));
     checkCudaErrors(cudaFree(out));
     checkCudaErrors(cudaFree(tmp));
-    free_matches(width);
+    free_matches(width, params.square_width);
     free_scores();
 }
 
