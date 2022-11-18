@@ -22,6 +22,10 @@ else ifeq ($(build),timing)
     outdir := timing
     CFLAGS += -O3 -DNO_WRITES
 	NVFLAGS := -O3 -DNO_WRITES
+else ifeq ($(build),release)
+	outdir := release
+	CFLAGS += -O3
+	NVFLAGS := -O3
 else
 	$(error error: invalid value for build)
 endif
@@ -67,10 +71,10 @@ thesis:
 	cd report; latexmk -f -pdf tesi.tex
 
 graphs:
-	@python3 test/make_graph.py $$(./test/time.sh timing/stereomatch) \
+	@python3 test/make_graph.py $$(./test/time.sh timing/stereomatch) 		\
 						 	    $$(./test/time.sh timing/stereomatch-ghost) \
-						  	    $$(./test/time.sh timing/stereomatch) \
-						 	    $$(./test/time.sh timing/stereomatch)
+						  	    $$(./test/time.sh timing/stereopar) 		\
+						 	    $$(./test/time.sh timing/stereoparg-ghost)
 	@convert -append ser.png sergh.png report/graphs_serial.png
 	@convert -append par.png pargh.png report/graphs_parallel.png
 	@convert -append sppar.png sppargh.png report/speedup.png
@@ -78,6 +82,6 @@ graphs:
 	@rm *.png
 
 clean:
-	-rm -r *.ppm debug timing
+	-rm -r *.ppm debug timing release
 
 .PHONY: clean graphs
