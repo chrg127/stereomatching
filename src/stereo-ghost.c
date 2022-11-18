@@ -5,11 +5,12 @@
 
 #define NUM_SHIFTS 30
 #define DEFAULT_THRESHOLD 0.15
-#define DEFAULT_SQUARE_WIDTH 5
+#define DEFAULT_SQUARE_WIDTH 21
 #define DEFAULT_TIMES 32
 #define DEFAULT_LINES 10
-#define GHOST_SIZE_MATCHES 5
+#define GHOST_SIZE_MATCHES DEFAULT_SQUARE_WIDTH
 #define GHOST_SIZE_EDGES NUM_SHIFTS
+
 
 
 // step 1
@@ -89,33 +90,33 @@ void find_all_edges(double *brightness, int w, int h, double threshold, u8 *edge
 
 u8 *matches[NUM_SHIFTS];
 
-void allocate_matches(int width, int height)
+void allocate_matches(int width, int height, int square_width)
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
-        matches[i] = ghost_alloc_u8(width, height, GHOST_SIZE_MATCHES, 0);
+        matches[i] = ghost_alloc_u8(width, height, square_width, 0);
 }
 
-void write_matches(int width, int height)
+void write_matches(int width, int height, int square_width)
 {
 #ifndef NO_WRITES
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_image(matches[i], width, height, GHOST_SIZE_MATCHES, IMTYPE_BINARY, make_filename("matches", SERGHOST, i));
+        write_image(matches[i], width, height, square_width, IMTYPE_BINARY, make_filename("matches", SERGHOST, i));
 #endif
 }
 
-void free_matches(int width)
+void free_matches(int width, int square_width)
 {
     for (int i = 0; i < NUM_SHIFTS; i++)
-        GHOST_FREE(u8, matches[i], width, GHOST_SIZE_MATCHES);
+        GHOST_FREE(u8, matches[i], width, square_width);
 }
 
 void fillup_matches(u8 *left_edges, u8 *right_edges,
-        int width, int height)
+        int width, int height, int square_width)
 {
     for (int i = 0; i < NUM_SHIFTS; i++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] =
+                matches[i][IGX(x, y, width, square_width)] =
                     left_edges [IGX(x,   y, width, GHOST_SIZE_EDGES)]
                  == right_edges[IGX(x+i, y, width, GHOST_SIZE_EDGES)];
                 // ^ the +i accomplishes the sliding process
@@ -131,17 +132,17 @@ void fillup_matches(u8 *left_edges, u8 *right_edges,
 // the square for each pixel is to be centered on that pixel.
 // the double for loop is slightly different than the original,
 // going from -half to +half.
-void addup_pixels_in_square(u8 *pixels, int width, int height, int square_width, i32 *total)
+void addup_pixels_in_square(u8 *pixels, int width, int height,
+        int square_width, i32 *total)
 {
     int half = square_width / 2;
-    for (int sy = 0; sy < square_width; sy++) {
-        for (int sx = 0; sx < square_width; sx++) {
+    for (int sy = -half; sy <= half; sy++) {
+        for (int sx = -half; sx <= half; sx++) {
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int cur = IDX(x, y, width);
-                    int rel = IGX(x + sx - half,
-                                  y + sy - half,
-                                  width, GHOST_SIZE_MATCHES);
+                    int rel = IGX(x + sx, y + sy,
+                                  width, square_width);
                     total[cur] += (i32) pixels[rel];
                 }
             }
@@ -171,13 +172,13 @@ void free_scores()
         free(scores[i]);
 }
 
-void record_score(int i, i32 *sum, int width, int height)
+void record_score(int i, i32 *sum, int width, int height, int square_width)
 {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             int index = IDX(x, y, width);
             // record a score whenever there was a match-up
-            if (matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] == 1)
+            if (matches[i][IGX(x, y, width, square_width)] == 1)
                 scores[i][index] = sum[index];
         }
     }
@@ -189,7 +190,7 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
         memset(sum, 0, sizeof(sum[0]) * width * height);
         addup_pixels_in_square(matches[i], width, height, square_width, sum);
         write_image(sum, width, height, 0, IMTYPE_GRAY_INT, make_filename("score_all", SERGHOST, i));
-        record_score(i, sum, width, height);
+        record_score(i, sum, width, height, square_width);
     }
 }
 
@@ -291,7 +292,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     i32 *buf         = ALLOCATE(i32, width * height),
         *web         = ALLOCATE(i32, width * height);
     u8 *out          = ALLOCATE(u8, width * height);
-    allocate_matches(width, height);
+    allocate_matches(width, height, params.square_width);
     allocate_scores(width, height);
 
     double t1 = get_time();
@@ -303,8 +304,8 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     write_image(second_edges, width, height, GHOST_SIZE_EDGES, IMTYPE_BINARY, make_filename("edges", SERGHOST, 2));
 
     // second step: match edges between images
-    fillup_matches(first_edges, second_edges, width, height);
-    write_matches(width, height);
+    fillup_matches(first_edges, second_edges, width, height, params.square_width);
+    write_matches(width, height, params.square_width);
 
     fillup_scores(width, height, params.square_width, buf);
     write_scores(width, height);
@@ -328,7 +329,7 @@ void algorithm(double *first, double *second, int width, int height, AlgorithmPa
     free(buf);
     free(web);
     free(out);
-    free_matches(width);
+    free_matches(width, params.square_width);
     free_scores();
 }
 

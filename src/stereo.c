@@ -142,7 +142,8 @@ void addup_pixels_in_square(u8 *pixels, int width, int height,
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int cur = IDX(x, y, width);
-                    int rel = idx(x + sx, y + sy, width, height);
+                    int rel = idx(x + sx, y + sy,
+                                  width, height);
                     total[cur] += (i32) pixels[rel];
                 }
             }

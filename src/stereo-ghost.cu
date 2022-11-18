@@ -5,10 +5,9 @@
 
 #define NUM_SHIFTS 30
 #define DEFAULT_THRESHOLD 0.15
-#define DEFAULT_SQUARE_WIDTH 5
+#define DEFAULT_SQUARE_WIDTH 21
 #define DEFAULT_TIMES 32
 #define DEFAULT_LINES 10
-#define GHOST_SIZE_MATCHES 5
 #define GHOST_SIZE_EDGES NUM_SHIFTS
 
 #define DECLARE_BLOCKS(w, h) \
@@ -99,39 +98,39 @@ __global__ void find_all_edges(double *brightness, int w, int h,
 
 __device__ u8 *matches[NUM_SHIFTS];
 
-void allocate_matches(int width, int height)
+void allocate_matches(int width, int height, int square_width)
 {
     u8 *tmp[NUM_SHIFTS];
     for (int i = 0; i < NUM_SHIFTS; i++)
-        tmp[i] = ghost_alloc_gpu_u8(width, height, GHOST_SIZE_MATCHES, 0);
+        tmp[i] = ghost_alloc_gpu_u8(width, height, square_width, 0);
     checkCudaErrors(cudaMemcpyToSymbol(matches, tmp, sizeof(tmp)));
 }
 
-void write_matches(int width, int height)
+void write_matches(int width, int height, int square_width)
 {
 #ifndef NO_WRITES
     u8 *tmp[NUM_SHIFTS];
     checkCudaErrors(cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp)));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        write_gpu_image(tmp[i], width, height, GHOST_SIZE_MATCHES, IMTYPE_BINARY, make_filename("matches", PARGHOST, i));
+        write_gpu_image(tmp[i], width, height, square_width, IMTYPE_BINARY, make_filename("matches", PARGHOST, i));
 #endif
 }
 
-void free_matches(int width)
+void free_matches(int width, int square_width)
 {
     u8 *tmp[NUM_SHIFTS];
     checkCudaErrors(cudaMemcpyFromSymbol(tmp, matches, sizeof(tmp)));
     for (int i = 0; i < NUM_SHIFTS; i++)
-        GHOST_FREE_GPU(u8, tmp[i], width, GHOST_SIZE_MATCHES);
+        GHOST_FREE_GPU(u8, tmp[i], width, square_width);
 }
 
 // this function records the edge-pixel match-ups at every shift
 __global__ void fillup_matches(u8 *left_edges, u8 *right_edges,
-        int width, int height)
+        int width, int height, int square_width)
 {
     DECLARE_INDEXES(width, height)
     for (int i = 0; i < NUM_SHIFTS; i++)
-        matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] =
+        matches[i][IGX(x, y, width, square_width)] =
             left_edges [IGX(x,   y, width, GHOST_SIZE_EDGES)]
          == right_edges[IGX(x+i, y, width, GHOST_SIZE_EDGES)];
         // ^ the +i accomplishes the sliding process
@@ -153,7 +152,7 @@ __global__ void addup_pixels_in_square(int i, int width, int height,
     int half = square_width / 2;
     for (int sy = -half; sy <= half; sy++) {
         for (int sx = -half; sx <= half; sx++) {
-            int rel = IGX(x + sx, y + sy, width, GHOST_SIZE_MATCHES);
+            int rel = IGX(x + sx, y + sy, width, square_width);
             total[cur] += (i32) pixels[rel];
         }
     }
@@ -187,12 +186,13 @@ void free_scores()
         checkCudaErrors(cudaFree(tmp[i]));
 }
 
-__global__ void record_score(int i, i32 *sum, int width, int height)
+__global__ void record_score(int i, i32 *sum, int width, int height,
+        int square_width)
 {
     DECLARE_INDEXES(width, height)
     int index = IDX(x, y, width);
     // record a score whenever there was a match-up
-    if (matches[i][IGX(x, y, width, GHOST_SIZE_MATCHES)] == 1)
+    if (matches[i][IGX(x, y, width, square_width)] == 1)
         scores[i][index] = sum[index];
 }
 
