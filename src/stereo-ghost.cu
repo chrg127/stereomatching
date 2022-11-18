@@ -227,7 +227,7 @@ __global__ void find_highest_scoring_shifts(i32 *best_scores,
 
 
 
-// step 4
+// step 3
 
 // each time though the loop, every pixel not on the web (i.e., every pixel that is not
 // zero to begin with) takes on the average elevation of its four neighbors. therefore,

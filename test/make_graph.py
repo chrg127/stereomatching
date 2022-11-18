@@ -48,9 +48,9 @@ graph_sp("Speedup",              "sppar",   np.array(serial[:-1])       / parall
 graph_sp("Speedup (Ghost Area)", "sppargh", np.array(serial_ghost[:-1]) / parallel_ghost[:-1], "Grandezza dell'immagine", "Speedup")
 
 def throughput(t, w, h):
-    return w * h * (4 + 4 + 30 + 30*2 + 1 + 32 + 1) / t / 1000000000
+    return w * h * (4*2 + 30 + 21*21 + 30*2 + 1 + 32 + 1 + 1 + 1) / t / 1000000000
 
-tp_parallel = [ throughput(t, w, h) for t, w, h in zip(parallel[:-1],       ws, hs) ]
+tp_parallel = [ throughput(t, w, h) for t, w, h in zip(parallel[:-1],  ws, hs) ]
 tp_ghost    = [ throughput(t, w, h) for t, w, h in zip(parallel_ghost, ws, hs) ]
 
 graph_sp("Throughput",              "tppar",   tp_parallel, "Grandezza dell'immagine", "Pixel al secondo (in miliardi)")

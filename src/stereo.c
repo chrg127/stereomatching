@@ -126,10 +126,6 @@ void fillup_matches(u8 *left_edges, u8 *right_edges,
     }
 }
 
-
-
-// step 3
-
 // the square for each pixel is to be centered on that pixel.
 // the double for loop is slightly different than the original,
 // going from -half to +half.
@@ -225,7 +221,7 @@ void find_highest_scoring_shifts(i32 *best_scores,
 
 
 
-// step 4
+// step 3
 
 // each time though the loop, every pixel not on the web (i.e., every pixel that is not
 // zero to begin with) takes on the average elevation of its four neighbors. therefore,

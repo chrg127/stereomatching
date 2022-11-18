@@ -136,10 +136,6 @@ __global__ void fillup_matches(u8 *left_edges, u8 *right_edges,
     }
 }
 
-
-
-// step 3
-
 // the square for each pixel is to be centered on that pixel.
 // the double for loop is slightly different than the original,
 // going from -half to +half.
@@ -230,8 +226,12 @@ __global__ void find_highest_scoring_shifts(i32 *best_scores,
 
 
 
-// step 4
+// step 3
 
+// each time though the loop, every pixel not on the web (i.e., every pixel that is not
+// zero to begin with) takes on the average elevation of its four neighbors. therefore,
+// the web pixels gradually "spread" their elevations across the holes, while they
+// themselves remain unchanged.
 __global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width, int height)
 {
     DECLARE_INDEXES(width, height)
@@ -244,10 +244,6 @@ __global__ void fill_web_holes_step(i32 *web, i32 *tmp, int width, int height)
            / 4;
 }
 
-// each time though the loop, every pixel not on the web (i.e., every pixel that is not
-// zero to begin with) takes on the average elevation of its four neighbors. therefore,
-// the web pixels gradually "spread" their elevations across the holes, while they
-// themselves remain unchanged.
 i32 *fill_web_holes(i32 *web, i32 *tmp, int width, int height, int times)
 {
     DECLARE_BLOCKS(width, height)

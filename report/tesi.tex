@@ -563,7 +563,7 @@ Infine, per trovare il migliore scorrimento per ogni pixel, basta usare la class
 
 Il processo fatto finora ci dà un'immagine che rappresenta l'altezza dell'area ad ogni pixel. Le altezze memorizzate però valgono solo per i pixel che giacciono sui bordi: essenzialmente tra i bordi ci sono ancora dei buchi e serve un altro passo per trovare le informazioni mancanti per questi buchi. L'algoritmo trova queste informazioni usando un operazione di interpolazione: per ogni pixel la cui altezza è zero, calcola una media sugli intorni dei pixel.
 
-Compiendo questa operazione una sola volta, solo i pixel giacenti vicino ai bordi si riempirebbero, dato che per un pixel ad altezza 0 a sua volta circondato da pixel ad altezza 0 la media rimane 0. Per questo l'operazione viene ripetuta un certo numero di volte, riempiendo gradualmente i buchi ad ogni iterazione, finché tutti i pixel diventino coperti e nessuno abbia altezza 0.
+Compiendo questa operazione una sola volta, solo i pixel giacenti vicino ai bordi si riempirebbero, dato che per un pixel ad altezza 0 a sua volta circondato da pixel ad altezza 0 la media rimane 0. Per questo l'operazione viene ripetuta un certo numero di volte (dettato dalla variabile \verb|times-to-repeat|), riempiendo gradualmente i buchi ad ogni iterazione, finché tutti i pixel diventino coperti e nessuno abbia altezza 0.
 
 \begin{lstlisting}[style=mystyle]
 (defun fill-in-web-holes (web-of-known-elevations times-to-repeat)
@@ -639,7 +639,7 @@ Da questa funzione notiamo alcuni dettagli:
     \item La descrizione originale dell'algoritmo non dice niente sui tipi di dati: si sa solo che le immagini in input sono in bianco e nero, ovvero in scala di grigi, ma non dice nulla sul range di valori. La rappresentazione più comune per immagini in scala di grigi è avere un valore da 0 a 255 per ogni pixel; in questo programma, però, si è scelto un'altra rappresentazione: i valori sono in virgola mobile (\verb|double|) e vanno da 0 a 1, dove 0 indica il nero e 1 indica il bianco. Si è scelto questo per via del fatto che l'operazione di moltiplicazione della soglia a riga 11 ha senso solo con questa rappresentazione (anche la soglia ha un valore da 0 a 1).
     \item Mentre in *Lisp le funzioni parallele agiscono su tutti gli elementi in automatico, in CUDA non è così: bisogna sempre fare un indicizzazione esplicita all'accesso degli array.
     \item Il codice in *Lisp non ha nessun controllo sui bordi della \textit{pvar}: è il linguaggio stesso che fa questi controlli. CUDA non fa nessun controllo, per cui si è scelto che la funzione \verb|idx|, che ha il compito di semplificare l'indicizzazione, faccia un \textit{wrap-around} ogni volta che gli indici sono superiori ai bordi (\verb|w| e \verb|h|).
-    \item Infine, la funzione \verb|CLAMP| fa si che il risultato della moltiplicazione resti tra 0 e 1.
+    \item Infine, la funzione \verb|CLAMP| a riga 11 fa si che il risultato della moltiplicazione resti tra 0 e 1.
 \end{itemize}
 
 Come nell'implementazione originale, questa funzione viene implementata per tutti gli altri lati e le quattro funzioni risultanti vengono combinate:
@@ -659,18 +659,18 @@ __global__ void find_all_edges(double *brightness, int w, int h,
 }
 \end{lstlisting}
 
-Il risultato viene messo in \verb|edges|. Quest'ultimo è un immagine \textit{binaria}, ovvero un immagine con solo 0 o 1, dove 0 questa volta indica il bianco e 1 il nero.
+Il risultato viene messo in \verb|edges|. Quest'ultimo è un immagine \textit{binaria}, ovvero un immagine con solo 0 o 1, dove 0 questa volta indica il bianco e 1 il nero. Per questo tipo di immagini si userà sempre il tipo \verb|u8 *|.
 
-La macro \verb|DECLARE_INDEXES| dichiara una coppia di coordinate \verb|x| e \verb|y| che identifica il thread che sta eseguendo, poi fa un controllo su quest'ultima per sapere se attivare il thread per questo kernel. Questo controllo serve nel caso vengano usati troppi thread (che può capitare se la larghezza o l'altezza delle immagini di input non sono multipli della dimensione del blocco predefinita). La macro viene usata in ogni kernel e viene espansa nel seguente codice:
+La macro \verb|DECLARE_INDEXES| a riga 4 dichiara una coppia di coordinate \verb|x| e \verb|y| che identifica il thread che sta eseguendo, poi fa un controllo su quest'ultima per sapere se attivare il thread per questo kernel. Questo controllo serve nel caso vengano usati troppi thread (che può capitare se la larghezza o l'altezza delle immagini di input non sono multipli della dimensione del blocco predefinita). La macro viene usata in ogni kernel e viene espansa nel seguente codice:
 
-\begin{lstlisting}
+\begin{lstlisting}[style=mystyle]
 int x = threadIdx.x + blockIdx.x * blockDim.x;
 int y = threadIdx.y + blockIdx.y * blockDim.y;
 if (x >= width || y >= height)
     return;
 \end{lstlisting}
 
-La funzione \verb|IDX|, utilizzata per indicizzare \verb|edges|, è una versione di \verb|idx| che non fa nessun \textit{wrap-around}, dato che in questo caso è impossibile che \verb|x| e \verb|y| siano fuori dai bordi.
+La funzione \verb|IDX| a riga 5, utilizzata per indicizzare \verb|edges|, è una versione di \verb|idx| che non fa nessun \textit{wrap-around}. Viene usata perché in questo caso è impossibile che \verb|x| e \verb|y| escano fuori dai bordi.
 
 \section{Ricerca di corrispondenze tra i bordi}
 
@@ -696,7 +696,7 @@ void free_matches()
 }
 \end{lstlisting}
 
-La funzione \verb|ALLOCATE_GPU| è un semplice \textit{wrapper} della funzione \verb|cudaMalloc| che ne semplifica il funzionamento. Dato che l'\textit{host} non ha accesso diretto alla memoria sul \textit{device}, si usa la funzione \verb|cudaMemcpyToSymbol| per aggiornare \verb|matches|.
+La funzione \verb|ALLOCATE_GPU| a riga 7 è un semplice \textit{wrapper} della funzione \verb|cudaMalloc| che ne semplifica il funzionamento. Dato che l'\textit{host} non ha accesso diretto alla memoria sul \textit{device}, si usa la funzione \verb|cudaMemcpyToSymbol| per aggiornare \verb|matches|.
 
 La funzione seguente è una traduzione diretta della funzione originale \verb|fillup-pvars-wherever-edges-align|. Da notare che gli elementi di \verb|matches| sono tutte immagini binarie.
 
@@ -733,7 +733,7 @@ __global__ void addup_pixels_in_square(int i, int width, int height,
 }
 \end{lstlisting}
 
-Per calcolare i punteggi ci serviamo di una struttura dati simile a \verb|matches|: le funzioni per allocare e liberare la memoria sono equivalenti.
+Per calcolare i punteggi ci serviamo di una struttura dati simile a \verb|matches|: le funzioni per allocare e liberare la memoria sono equivalenti. L'array \verb|scores| contiene immagini che rappresentano punteggi: per questo tipo di immagini, e anche per immagini che rappresentano altezze, si userà sempre il tipo \verb|i32 *|.
 
 Le seguenti funzioni corrispondono alla funzione originale \\ \verb|fillup-pvars-with-match-scores|, ma sono divise in due per via della \verb|cudaMemset| fatta prima di riempire l'array \verb|sum|: quest'ultimo viene usato in questo modo per evitare di fare più allocazioni.
 
@@ -766,18 +766,19 @@ void fillup_scores(int width, int height, int square_width, i32 *sum)
 }
 \end{lstlisting}
 
-Qui si può anche notare il metodo di chiamata di una funzione kernel: la macro \verb|DECLARE_BLOCKS| si espande in:
+Qui si può anche notare il metodo di chiamata di una funzione kernel: la macro \verb|DECLARE_BLOCKS| a riga 16 si espande in:
 
 \begin{lstlisting}[style=mystyle]
-const int BLOCKS_WIDTH = ceil_div(width, BLOCK_DIM_SIDE);
+const int BLOCKS_WIDTH  = ceil_div(width, BLOCK_DIM_SIDE);
 const int BLOCKS_HEIGHT = ceil_div(height, BLOCK_DIM_SIDE);
-const dim3 NUM_BLOCKS = dim3(BLOCKS_WIDTH, BLOCKS_HEIGHT);
+const dim3 NUM_BLOCKS   = dim3(BLOCKS_WIDTH, BLOCKS_HEIGHT);
 \end{lstlisting}
 
 Da come si è già potuto notare, il programma utilizza i blocchi e i thread come se se fossero una griglia 2D. La funzione \verb|ceil_div| serve per calcolare l'esatto numero di blocchi che servono a partire dalle dimensioni delle immagini.
 
-
 Infine, la funzione seguente esegue la ricerca del punteggio massimo per ogni pixel. La funzione \verb|MAX| a riga 11 calcola il massimo tra due valori.
+
+\newpage
 
 \begin{lstlisting}[style=mystyle]
 // this function computes the web of known shifts. recall that
@@ -828,7 +829,7 @@ i32 *fill_web_holes(i32 *web, i32 *tmp, int width, int height, int times)
 }
 \end{lstlisting}
 
-Infine, le funzioni seguenti implementano la creazione della \textit{contour map}: di particolare nota sono le due funzioni \verb|image_max| e \verb|imagine_min|, che sono \textit{built-in} in *Lisp ma non in CUDA, per cui sono state implementate a mano usando un operazione di riduzione.
+Infine, le funzioni seguenti implementano la creazione della \textit{contour map}: di particolare nota sono le due funzioni \verb|image_max| e \verb|imagine_min| a righe 20 e 21, che sono \textit{built-in} in *Lisp ma non in CUDA, per cui sono state implementate a mano usando un operazione di riduzione.
 
 \begin{lstlisting}[style=mystyle]
 __global__ void draw_contour_map_kernel(i32 *web, int width,
@@ -868,14 +869,22 @@ Un'altra ottimizzazione sarebbe provare a rimuovere il \textit{double buffering}
 
 \section{Altri dettagli}
 
-Dal punto di vista della \textit{Stereo Vision}, i risultati di questo algoritmo non sembrano molto buoni: le immagini che si ottengono sono molto rumorose. Non si capisce bene se questo sia colpa dell'algoritmo o dell'implementazione in CUDA; dato che lo scopo, però, è quello la traduzione dell'algoritmo, si è deciso di non indagare su questo problema.
+In questa implementazione ci sono quattro parametri che si possono cambiare a piacimento per avere un immagine di output migliore. Essi sono:
 
+\begin{itemize}
+    \item Il valore di soglia \verb|threshold| utilizzato nella ricerca dei bordi;
+    \item Il valore del lato del quadrato, \verb|square_width|, utilizzato nel calcolo dei punteggi;
+    \item Il valore di \verb|times|, che indica quante volte ripetere l'operazione di riempimento dei buchi;
+    \item Il numero di linee da tracciare, \verb|num_lines|.
+\end{itemize}
+
+Dal punto di vista della \textit{Stereo Vision}, i risultati di questo algoritmo non sembrano molto buoni: le immagini che si ottengono sono molto rumorose. Non si capisce bene se questo sia colpa dell'algoritmo o dell'implementazione in CUDA; dato che lo scopo, però, è quello la traduzione dell'algoritmo, si è deciso di non indagare troppo su questo problema.
 
 \chapter{Valutazione delle prestazioni}
 
 \section{Descrizione dei test}
 
-Per testare le prestazioni dell'algoritmo, sono state create quattro versioni: una versione seriale, una versione parallela (da cui proviene il codice presentato) e due versioni seriale e parallela che usano la \textit{ghost area}.
+Per testare le prestazioni dell'algoritmo, sono state create quattro versioni: una versione seriale, una versione parallela (da cui proviene il codice presentato) e due versioni seriale e parallela che usano la \textit{ghost area}. Per ogni test si sono usati gli stessi parametri: \verb|threshold| uguale a 0.15; \verb|square_width| uguale a 21; \verb|times| uguale a 32; \verb|num_lines| uguale a 10.
 
 Per quanto riguarda i test, si è scelto di usare alcune coppie di immagini di varie grandezze. Le coppie di immagini sono tutte uguali, avendo le dimensioni come unica differenza; si è provato anche ad usare immagini diverse, ma non sono state riscontrate differenze reali nei tempi di esecuzione.
 
@@ -904,7 +913,7 @@ Di seguito si possono vedere i dati raccolti sia per lo \textit{Speedup} che per
     \label{img:times_ser}
 \end{figure}
 
-La figura \ref{img:times_ser} un grafico dei tempi per i programmi seriali. Si noti in particolare il tempo per le immagini più grandi: 2 minuti e mezzo per la versione normale e mezzo minuto per quella con \textit{ghost area}. Alla luce di ciò si può dire che la \textit{ghost area} risulta come una buona ottimizzazione.
+La figura \ref{img:times_ser} un grafico dei tempi per i programmi seriali. Si noti in particolare il tempo per le immagini più grandi: 41 minuti per la versione normale e 5 minuti per quella con \textit{ghost area}. Alla luce di ciò si può dire che la \textit{ghost area} risulta come una buona ottimizzazione, anche senza parallelizzazione.
 
 \begin{figure}[h]
     \centering
@@ -913,7 +922,7 @@ La figura \ref{img:times_ser} un grafico dei tempi per i programmi seriali. Si n
     \label{img:times_par}
 \end{figure}
 
-In figura \ref{img:times_par} si trovano i tempi per i programmi paralleli, che risultano tutti minori di un secondo. Un cosa che non si nota dai grafici è che i tempi di esecuzione per la versione con \textit{ghost area} risultano più piccoli di un ordine di grandezza rispetto alla versione normale.
+In figura \ref{img:times_par} si trovano i tempi per i programmi paralleli, che risultano tutti minori di un secondo, eccetto per le immagini più grandi.
 
 \begin{figure}[h]
     \centering
@@ -922,7 +931,7 @@ In figura \ref{img:times_par} si trovano i tempi per i programmi paralleli, che 
     \label{img:speedup}
 \end{figure}
 
-In figura \ref{img:speedup} troviamo lo \textit{speedup} tra le versioni seriali e parallele, rispettivamente senza e con \textit{ghost area}. Da questi grafici osserviamo uno \textit{speedup} di almeno un fattore di 150 per le versioni normali e di 30 per le versioni con \textit{ghost area}.
+In figura \ref{img:speedup} troviamo lo \textit{speedup} tra le versioni seriali e parallele, rispettivamente senza e con \textit{ghost area}. Da questi grafici osserviamo uno \textit{speedup} di almeno un fattore di 300 per le versioni normali e di 20 per le versioni con \textit{ghost area}.
 
 \begin{figure}[h]
     \centering
@@ -931,7 +940,7 @@ In figura \ref{img:speedup} troviamo lo \textit{speedup} tra le versioni seriali
     \label{img:throughput}
 \end{figure}
 
-Infine, la figura \ref{img:throughput} mostra il \textit{throughput} delle due versioni parallele. Il \textit{throughput} qui viene misurato in pixel per secondo, contando anche il numero di volte in cui viene processata un intera immagine. Si noti come il grafico mostri un limite maggiore di 8-9 miliardi di pixel per secondo per il \textit{throughput}.
+Infine, la figura \ref{img:throughput} mostra il \textit{throughput} delle due versioni parallele. Il \textit{throughput} qui viene misurato in pixel per secondo, contando anche il numero di volte in cui viene processata un intera immagine. Si noti come il grafico mostri un limite maggiore di 6 miliardi di pixel per secondo per il \textit{throughput}.
 
 \chapter*{Conclusioni}
 
