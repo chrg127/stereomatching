@@ -189,7 +189,7 @@ Perché ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Qu
 
 \begin{itemize}
     \item La dimensione dei transistor. Il miglior modo per aumentare il numero di transistor è di renderli sempre più piccoli, ma esiste un limite fisico della grandezza minima. I transistor di oggi vanno dai 20 nm ai 3 nm;
-    \item Il calore dissipato dal processore. Un processore più veloce corrisponde ad una più grande quantità di calore dissipato, che porta a problemi di instabilità nel processore.
+    \item Il calore dissipato dal processore. Un processore più veloce corrisponde ad una quantità più grande di calore dissipato, che porta a problemi di instabilità nel processore.
 \end{itemize}
 
 \begin{figure}[h]
@@ -200,7 +200,7 @@ Perché ricorrere all'esecuzione parallela per ottenere prestazioni migliori? Qu
     \label{img:trend_proc}
 \end{figure}
 
-Al posto di aumentare il numero di transistor, negli ultimi due decenni sono state ideate nuove architetture che sfruttano il parallelismo: queste sono le architetture parallele, anche chiamate multicore o multiprocessore. Queste architetture sono sviluppate aggiungendo più processori fisici dentro ad un chip. Le prestazioni che si possono ottenere con le architetture parallele derivano quindi dalla suddivisione del lavoro che è distribuito in più unità operazionali.
+Al posto di aumentare il numero di transistor, negli ultimi due decenni sono state ideate nuove architetture che sfruttano il parallelismo: queste sono le architetture parallele, anche chiamate multicore o multiprocessore. Queste architetture sono sviluppate aggiungendo più processori dentro ad un singolo chip. Le prestazioni che si possono ottenere con le architetture parallele derivano quindi dalla suddivisione del lavoro che è distribuito in più unità operazionali.
 
 Nella figura \ref{img:trend_proc} viene mostrata l'evoluzione dei processori nel corso degli ultimi decenni. In particolare, si può notare come la frequenza media dei processori si sia stabilizzata, mentre più o meno dalla metà degli anni 2000 sia cresciuto il numero di core logici, a seguito di ricerche sullo sviluppo delle architetture parallele.
 
@@ -222,7 +222,7 @@ Le prime ricerche riguardanti la programmazione generale su GPU furono svolte ne
 
 CUDA (Compute Unified Device Architecture) è una piattaforma per il calcolo parallelo sviluppata da NVIDIA. Si tratta di una piattaforma che consente l'utilizzo delle schede grafiche NVIDIA per eseguire programmi paralleli, sfruttando appieno le loro potenzialità. La prima versione di CUDA è stata pubblicata nel 2007.
 
-I concetti di base di CUDA sono molto semplici: CUDA prevede una separazione tra l'\textit{host}, che corrisponde la CPU, e il \textit{device}, che corrisponde ad una o più schede grafiche. Queste sono considerate unità indipendenti, che cooperano in modo asincrono: in particolare, l'\textit{host} ha la possibilità di invocare funzioni specifiche che vengono eseguite sul \textit{device}. Queste funzioni vengono dette \textit{kernel}; appena vengono chiamate, queste vengono eseguite in modo asincrono e restituiscono subito il controllo all'\textit{host}.
+I concetti di base di CUDA sono molto semplici: CUDA prevede una separazione tra l'\textit{host}, che corrisponde alla CPU, e il \textit{device}, che corrisponde ad una o più schede grafiche. Queste sono considerate unità indipendenti, che cooperano in modo asincrono: in particolare, l'\textit{host} ha la possibilità di invocare funzioni specifiche che vengono eseguite sul \textit{device}. Queste funzioni vengono dette \textit{kernel}; appena vengono chiamate, queste vengono eseguite in modo asincrono e restituiscono subito il controllo all'\textit{host}.
 
 \subsection{Architettura di CUDA}
 
@@ -242,8 +242,6 @@ Una griglia rappresenta un lavoro affidato alla GPU: anch'esso può essere tridi
 
 Lo \textbf{scheduling dei thread} in CUDA è completamente automatico: non è possibile scegliere quali e quanti core (che in CUDA vengono chiamati \textit{Streaming Multiprocessor}) debbano venire utilizzati.
 
-\subsection{Struttura e gestione della memoria}
-
 Quando si scrive un \textit{kernel}, non ci si deve mai preoccupare di come vengono gestiti i thread. Sarà l'hardware stesso a preoccuparsi, durante l'esecuzione, di effettuare lo scheduling migliore sfruttando al massimo l'hardware: in particolare, in CUDA esiste il concetto di \textit{warp}, che rappresenta l'unità minima di schedulazione e contiene un certo numero di thread (massimo 32). L'hardware raggruppa assieme in un \textit{warp} i thread che devono eseguire la stessa porzione di codice; i thread eseguono le istruzioni seguendo il paradigma SIMD.
 
 Nel caso ci sia una biforcazione nel flusso di controllo (causato, ad esempio, da costrutti \verb|if-else|), la condizione viene calcolata per ogni thread, dopodichè vengono eseguiti i thread per cui è stata verificata, mentre gli altri rimangono fermi. L'hardware comunque può trasferire i thread che sono rimasti fermi in altri warp. La figura \ref{img:warp-branch} mostra un esempio visuale del problema.
@@ -256,13 +254,15 @@ Nel caso ci sia una biforcazione nel flusso di controllo (causato, ad esempio, d
     \label{img:warp-branch}
 \end{figure}
 
+\subsection{Struttura e gestione della memoria}
+
 La memoria in CUDA è suddivisa in più tipi:
 
 \begin{itemize}
     \item \textbf{Memoria globale}: è la memoria più grande (alcuni GB). A questa memoria possono accedere ogni thread di ogni blocco, ma presenta una latenza di accesso più alta;
     \item \textbf{Memoria delle constanti}: una memoria persistente anch'essa accessibili da ogni thread, ma ci i thread possono accedere in sola lettura. L\'host può comunque accedere in scrittura. È più piccola, di soli 64 KB;
     \item \textbf{Memoria texture}: un'altra memoria di sola lettura e accessibile da tutti, ma è ottimizzata per le texture;
-    \item \textbf{Memoria condivisa}: è una memoria molto veloce che viene condivisa tra tutti i thread di un solo blocco. Per blocco ci sono 48 KB di memoria condivisa;
+    \item \textbf{Memoria condivisa}: è una memoria molto veloce che viene condivisa tra tutti i thread di un solo blocco. Ci sono 48 KB di memoria condivisa per blocco;
     \item \textbf{Memoria locale}: una memoria dedicata per ogni thread, accessibile solo da esso. Non persiste tra l'esecuzione di due kernel;
 \end{itemize}
 
@@ -382,9 +382,9 @@ L'algoritmo di stereo matching che presentiamo fu descritto e implementato per l
 
 La \textit{Connection Machine CM-2} fa parte di una serie di supercomputer sviluppati dall'azienda Thinking Machines nei primo anni 80. La macchina era un supercomputer parallelo basata sul parallelismo a livello di dati (\textit{data level parallelism}), che consiste nell'eseguire un'operazione su più dati in parallelo, in contrasto con il parallelismo a livello di istruzioni, che consiste nell'eseguire in parallelo le istruzioni che possono essere eseguite indipendentemente \cite{originalalgo}. In pratica, ciò significa che la Connection Machine operava come una gigantesca macchina SIMD (Single Instruction Multiple Data). La figura \ref{img:connection_machine} ne mostra una foto dall'esterno.
 
-La macchina, per eseguire i programma, utilizzava una parte di front-end, dove veniva memorizzato il programma e dove veniva eseguito il codice seriale. Quando un programma incontrava istruzioni parallele (istruzioni che operava sui dati in modo parallelo), le passava all'hardware della Connection Machine: questo era composto da 65535 processori, ognuno con 4096 bit di memoria.
+La macchina, per eseguire i programma, utilizzava una parte di \textit{front-end}, dove veniva memorizzato il programma e dove veniva eseguito il codice seriale. Quando un programma incontrava istruzioni parallele (istruzioni che operava sui dati in modo parallelo), le passava all'hardware della Connection Machine: questo era composto da 65535 processori, ognuno con 4096 bit di memoria.
 
-Ogni processore operava su un solo elemento: se c'erano meno di 65535 elementi, allora i processori rimanenti venivano disabilitati; se ce n'erano di più, allora la macchina operava con processori virtuali. I processori potevano comunicare tra di loro attraverso un sistema di inter-connessione chiamato \textit{router}: questo funzionava con meccanismi di comunicazione a scambio di messaggi ed era implementato in software.
+Ogni processore operava su un solo elemento: se c'erano meno di 65535 elementi, allora i processori rimanenti venivano disabilitati; se ce n'erano di più, allora la macchina operava con processori virtuali. I processori potevano comunicare tra di loro attraverso un sistema di inter-connessione chiamato \textit{router}: questo funzionava con meccanismi di comunicazione a scambio di messaggi ed era implementato in software. Tutti questi meccanismi comunque restavano trasparenti al programmatore, che non si doveva preoccupare di come funzionavano.
 
 \section{*Lisp}
 
@@ -392,7 +392,7 @@ Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John 
 
 \newpage
 
-\begin{lstlisting}[caption={Esempio di codice Lisp. Questa funzione implementa la ricerca nell'array in maniera ricorsiva, in concordanza con il paradigma funzionale.}]
+\begin{lstlisting}[style=mystyle,caption={Esempio di codice Lisp. Questa funzione implementa la ricerca nell'array in maniera ricorsiva, in concordanza con il paradigma funzionale.}]
 (defun contains-element (arr i element)
   (if (= i (array-dimension arr 0))
     0
@@ -403,7 +403,7 @@ Lisp è un linguaggio di programmazione ideato all'inizio degli anni 60 da John 
 
 Il Lisp ha molti dialetti e *Lisp è uno di questi (in particolare, è un dialetto del Common Lisp). *Lisp, come linguaggio pensato per essere usato nella Connection Machine, aggiunge nuove caratteristiche per la programmazione parallela: ad esempio, molti costrutti come \verb|if| e \verb|=| hanno una versione parallela che agiscono su tutti i dati in contemporanea. In particolare, introduce una struttura dati, la \textit{pvar}, che rappresenta una collezione di valori memorizzati uno per ogni processore \cite{starlisp}. Il seguente codice mostra un esempio di codice *Lisp, che è una traduzione della funzione sopra:
 
-\begin{lstlisting}[caption={Esempio di codice *Lisp. Questa versione della funzione implementa la ricerca in parallelo su tutti gli elementi dell'array.}]
+\begin{lstlisting}[style=mystyle,caption={Esempio di codice *Lisp. Questa versione della funzione implementa la ricerca in parallelo su tutti gli elementi dell'array.}]
 (*defun contains-element (pvar element)
   (if!! (=!! pvar element)
         (!! 1)
