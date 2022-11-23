@@ -72,9 +72,9 @@ thesis:
 
 graphs:
 	@python3 test/make_graph.py $$(./test/time.sh timing/stereomatch) 		\
-						 	    $$(./test/time.sh timing/stereomatch-ghost) \
+						 	    $$(./test/time.sh timing/stereomatch-ghost)	\
 						  	    $$(./test/time.sh timing/stereopar) 		\
-						 	    $$(./test/time.sh timing/stereoparg-ghost)
+						 	    $$(./test/time.sh timing/stereopar-ghost)
 	@convert -append ser.png sergh.png report/graphs_serial.png
 	@convert -append par.png pargh.png report/graphs_parallel.png
 	@convert -append sppar.png sppargh.png report/speedup.png

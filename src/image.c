@@ -34,12 +34,17 @@ int read_image(const char *name, Image *out)
     return 0;
 }
 
-static int get_image_value(void *p, int x, int y, int width, int ghost_size, ImageType type)
+long map(long x, long in_min, long in_max, long out_min, long out_max)
+{
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+static int get_image_value(void *p, int x, int y, int width, int image_min, int image_max, int ghost_size, ImageType type)
 {
     switch (type) {
-    case IMTYPE_BINARY:     return (int) (((u8 *)p)[IGX(x, y, width, ghost_size)] == 1 ? 0 : 255);
-    case IMTYPE_GRAY_FLOAT: return (int) (((double *)p)[IGX(x, y, width, ghost_size)] * 255.0);
-    case IMTYPE_GRAY_INT:   return (int) (((i32 *)p)[IGX(x, y, width, ghost_size)]);
+    case IMTYPE_BINARY:     return (int)    (((u8 *)    p)[IGX(x, y, width, ghost_size)] == 1 ? 0 : 255);
+    case IMTYPE_GRAY_FLOAT: return (int)    (((double *)p)[IGX(x, y, width, ghost_size)] * 255.0);
+    case IMTYPE_GRAY_INT:   return (int) map((((i32 *)  p)[IGX(x, y, width, ghost_size)]), image_min, image_max, 0, 255);
     default:                return 0;
     }
 }
@@ -70,10 +75,12 @@ void write_image(void *data, int width, int height, int ghost_size, ImageType ty
     free(filename);
     if (!f)
         return;
+    int min = type == IMTYPE_GRAY_INT ? array_min((i32 *) data, width * height) : 0,
+        max = type == IMTYPE_GRAY_INT ? array_max((i32 *) data, width * height) : 0;
     fprintf(f, "P3\n%d %d\n255\n", width, height);
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int v = get_image_value(data, x, y, width, ghost_size, type);
+            int v = get_image_value(data, x, y, width, min, max, ghost_size, type);
             fprintf(f, "%d %d %d\n", v, v, v);
         }
     }
